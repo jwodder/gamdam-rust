@@ -6,8 +6,8 @@ pub enum AddurlOutput {
     #[serde(rename_all = "kebab-case")]
     Progress {
         byte_progress: usize,
-        total_size: usize,
-        percent_progress: String,
+        total_size: Option<usize>,
+        percent_progress: Option<String>,
         action: Action,
     },
 
@@ -31,7 +31,9 @@ pub enum AddurlOutput {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 pub struct Action {
     pub command: String,
-    pub file: String,
+    // `file` can be `None` for an in-progress download requested without an
+    // explicit download path
+    pub file: Option<String>,
     pub input: Vec<String>,
 }
 
@@ -48,7 +50,7 @@ mod tests {
                 key: Some(String::from("MD5E-s3405224--dd15380fc1b27858f647a30cc2399a52.pdf")),
                 action: Action {
                     command: String::from("addurl"),
-                    file: String::from("programming/gameboy.pdf"),
+                    file: Some(String::from("programming/gameboy.pdf")),
                     input: vec![String::from("https://archive.org/download/GameBoyProgManVer1.1/GameBoyProgManVer1.1.pdf programming/gameboy.pdf")],
                 },
                 success: true,
@@ -67,7 +69,7 @@ mod tests {
                 key: None,
                 action: Action {
                     command: String::from("addurl"),
-                    file: String::from("text/shakespeare/hamlet.txt"),
+                    file: Some(String::from("text/shakespeare/hamlet.txt")),
                     input: vec![String::from("https://gutenberg.org/files/1524/1524-0.txt text/shakespeare/hamlet.txt")],
                 },
                 success: true,
@@ -87,7 +89,7 @@ mod tests {
                 key: None,
                 action: Action {
                     command: String::from("addurl"),
-                    file: String::from("nexists.pdf"),
+                    file: Some(String::from("nexists.pdf")),
                     input: vec![String::from(
                         "https://www.varonathe.org/nonexistent.pdf nexists.pdf"
                     )],
@@ -106,12 +108,33 @@ mod tests {
         assert_eq!(parsed,
             AddurlOutput::Progress {
                 byte_progress: 605788,
-                total_size: 3405224,
-                percent_progress: String::from("17.79%"),
+                total_size: Some(3405224),
+                percent_progress: Some(String::from("17.79%")),
                 action: Action {
                     command: String::from("addurl"),
-                    file: String::from("programming/gameboy.pdf"),
+                    file: Some(String::from("programming/gameboy.pdf")),
                     input: vec![String::from("https://archive.org/download/GameBoyProgManVer1.1/GameBoyProgManVer1.1.pdf programming/gameboy.pdf")],
+                },
+            }
+        )
+    }
+
+    #[test]
+    fn test_addurl_progress_no_total_null_file() {
+        let s = r#"{"byte-progress":8192,"action":{"command":"addurl","file":null,"input":["https://www.httpwatch.com/httpgallery/chunked/chunkedimage.aspx"]}}"#;
+        let parsed = serde_json::from_str::<AddurlOutput>(s).unwrap();
+        assert_eq!(
+            parsed,
+            AddurlOutput::Progress {
+                byte_progress: 8192,
+                total_size: None,
+                percent_progress: None,
+                action: Action {
+                    command: String::from("addurl"),
+                    file: None,
+                    input: vec![String::from(
+                        "https://www.httpwatch.com/httpgallery/chunked/chunkedimage.aspx"
+                    )],
                 },
             }
         )
