@@ -92,7 +92,7 @@ pub enum AddURLOutput {
 
 impl AnnexOutput for AddURLOutput {
     fn deserialize(data: Bytes) -> Result<Self, anyhow::Error> {
-        unimplemented!()
+        Ok(serde_json::from_slice(&data)?)
     }
 }
 

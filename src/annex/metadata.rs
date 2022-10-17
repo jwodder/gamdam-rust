@@ -56,7 +56,7 @@ pub struct MetadataOutput {
 
 impl AnnexOutput for MetadataOutput {
     fn deserialize(data: Bytes) -> Result<Self, anyhow::Error> {
-        unimplemented!()
+        Ok(serde_json::from_slice(&data)?)
     }
 }
 
