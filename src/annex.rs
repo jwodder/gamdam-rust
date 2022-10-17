@@ -27,6 +27,7 @@ impl RawAnnexProcess {
     }
 
     pub async fn writeline(&self, line: &[u8]) -> Result<(), TODOError> {
+        // This function is the one that adds the '\n'
         unimplemented!()
     }
 
@@ -51,16 +52,14 @@ pub trait AnnexProcess {
     where
         Self::Input: AnnexInput + Send,
     {
-        // Serialize input and write to process
-        unimplemented!()
+        self.process().writeline(&value.serialize()).await
     }
 
     async fn recv(&self) -> Result<Self::Output, TODOError>
     where
         Self::Output: AnnexOutput,
     {
-        // Read line from process and deserialize
-        unimplemented!()
+        Self::Output::deserialize(self.process().readline().await?)
     }
 
     async fn chat(&self, value: Self::Input) -> Result<Self::Output, TODOError>
@@ -78,7 +77,7 @@ pub trait AnnexInput {
 }
 
 pub trait AnnexOutput {
-    fn deserialize(data: &[u8]) -> Result<Self, TODOError>
+    fn deserialize(data: Bytes) -> Result<Self, TODOError>
     where
         Self: Sized;
 }

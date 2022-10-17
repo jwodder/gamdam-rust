@@ -97,7 +97,7 @@ pub enum AddURLOutput {
 }
 
 impl AnnexOutput for AddURLOutput {
-    fn deserialize(data: &[u8]) -> Result<Self, TODOError> {
+    fn deserialize(data: Bytes) -> Result<Self, TODOError> {
         unimplemented!()
     }
 }

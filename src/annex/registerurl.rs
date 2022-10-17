@@ -46,7 +46,7 @@ pub struct RegisterURLOutput {
 }
 
 impl AnnexOutput for RegisterURLOutput {
-    fn deserialize(data: &[u8]) -> Result<Self, TODOError> {
+    fn deserialize(data: Bytes) -> Result<Self, TODOError> {
         unimplemented!()
     }
 }
