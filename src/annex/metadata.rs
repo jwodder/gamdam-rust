@@ -11,10 +11,11 @@ pub struct Metadata {
 }
 
 impl Metadata {
-    pub async fn new<P: AsRef<Path>>(repo: P) -> Result<Self, TODOError> {
+    pub async fn new<P: AsRef<Path>>(repo: P) -> Result<Self, anyhow::Error> {
         Ok(Metadata {
             process: RawAnnexProcess::new(
-                ["metadata", "--batch", "--json", "--json-error-messages"],
+                "metadata",
+                ["--batch", "--json", "--json-error-messages"],
                 repo,
             )
             .await?,
@@ -54,7 +55,7 @@ pub struct MetadataOutput {
 }
 
 impl AnnexOutput for MetadataOutput {
-    fn deserialize(data: Bytes) -> Result<Self, TODOError> {
+    fn deserialize(data: Bytes) -> Result<Self, anyhow::Error> {
         unimplemented!()
     }
 }

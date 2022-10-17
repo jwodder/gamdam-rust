@@ -25,7 +25,7 @@ pub struct AddURL {
 }
 
 impl AddURL {
-    pub async fn new<I, S, P>(jobs: Jobs, options: I, repo: P) -> Result<Self, TODOError>
+    pub async fn new<I, S, P>(jobs: Jobs, options: I, repo: P) -> Result<Self, anyhow::Error>
     where
         I: IntoIterator<Item = S>,
         S: AsRef<str>,
@@ -33,7 +33,6 @@ impl AddURL {
     {
         // TODO: Figure out how to do this without creating a bunch of Strings
         let mut args = vec![
-            String::from("addurl"),
             String::from("--batch"),
             String::from("--with-files"),
             String::from("--jobs"),
@@ -44,7 +43,7 @@ impl AddURL {
         ];
         args.extend(options.into_iter().map(|s| String::from(s.as_ref())));
         Ok(AddURL {
-            process: RawAnnexProcess::new(args, repo).await?,
+            process: RawAnnexProcess::new("addurl", args, repo).await?,
         })
     }
 }
@@ -92,7 +91,7 @@ pub enum AddURLOutput {
 }
 
 impl AnnexOutput for AddURLOutput {
-    fn deserialize(data: Bytes) -> Result<Self, TODOError> {
+    fn deserialize(data: Bytes) -> Result<Self, anyhow::Error> {
         unimplemented!()
     }
 }

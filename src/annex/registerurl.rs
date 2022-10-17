@@ -10,10 +10,11 @@ pub struct RegisterURL {
 }
 
 impl RegisterURL {
-    pub async fn new<P: AsRef<Path>>(repo: P) -> Result<Self, TODOError> {
+    pub async fn new<P: AsRef<Path>>(repo: P) -> Result<Self, anyhow::Error> {
         Ok(RegisterURL {
             process: RawAnnexProcess::new(
-                ["registerurl", "--batch", "--json", "--json-error-messages"],
+                "registerurl",
+                ["--batch", "--json", "--json-error-messages"],
                 repo,
             )
             .await?,
@@ -50,7 +51,7 @@ pub struct RegisterURLOutput {
 }
 
 impl AnnexOutput for RegisterURLOutput {
-    fn deserialize(data: Bytes) -> Result<Self, TODOError> {
+    fn deserialize(data: Bytes) -> Result<Self, anyhow::Error> {
         unimplemented!()
     }
 }
