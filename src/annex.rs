@@ -1,6 +1,7 @@
 #![allow(unused)]
 mod addurl;
 mod metadata;
+mod outputs;
 mod registerurl;
 pub use addurl::*;
 use async_trait::async_trait;
