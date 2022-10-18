@@ -2,7 +2,6 @@
 use super::outputs::{Action, AnnexResult};
 use super::*;
 use anyhow::Context;
-use bytes::Bytes;
 use serde::Deserialize;
 use std::fmt;
 use std::path::Path;
@@ -64,8 +63,8 @@ pub struct AddURLInput {
 }
 
 impl AnnexInput for AddURLInput {
-    fn serialize(self) -> Bytes {
-        Bytes::from(format!("{} {}", self.url, self.path))
+    fn serialize(self) -> String {
+        format!("{} {}", self.url, self.path)
     }
 }
 
@@ -92,8 +91,8 @@ pub enum AddURLOutput {
 }
 
 impl AnnexOutput for AddURLOutput {
-    fn deserialize(data: Bytes) -> Result<Self, anyhow::Error> {
-        serde_json::from_slice(&data)
+    fn deserialize(data: &str) -> Result<Self, anyhow::Error> {
+        serde_json::from_str(data)
             .with_context(|| format!("Unable to decode `git-annex addurl` output: {data:?}"))
     }
 }

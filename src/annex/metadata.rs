@@ -2,7 +2,6 @@
 use super::outputs::{Action, AnnexResult};
 use super::*;
 use anyhow::Context;
-use bytes::Bytes;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::Path;
@@ -39,7 +38,7 @@ pub struct MetadataInput {
 }
 
 impl AnnexInput for MetadataInput {
-    fn serialize(self) -> Bytes {
+    fn serialize(self) -> String {
         unimplemented!()
     }
 }
@@ -56,8 +55,8 @@ pub struct MetadataOutput {
 }
 
 impl AnnexOutput for MetadataOutput {
-    fn deserialize(data: Bytes) -> Result<Self, anyhow::Error> {
-        serde_json::from_slice(&data)
+    fn deserialize(data: &str) -> Result<Self, anyhow::Error> {
+        serde_json::from_str(data)
             .with_context(|| format!("Unable to decode `git-annex metadata` output: {data:?}"))
     }
 }

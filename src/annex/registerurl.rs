@@ -2,7 +2,6 @@
 use super::outputs::{Action, AnnexResult};
 use super::*;
 use anyhow::Context;
-use bytes::Bytes;
 use serde::Deserialize;
 use std::path::Path;
 
@@ -38,8 +37,8 @@ pub struct RegisterURLInput {
 }
 
 impl AnnexInput for RegisterURLInput {
-    fn serialize(self) -> Bytes {
-        Bytes::from(format!("{} {}", self.key, self.url))
+    fn serialize(self) -> String {
+        format!("{} {}", self.key, self.url)
     }
 }
 
@@ -52,8 +51,8 @@ pub struct RegisterURLOutput {
 }
 
 impl AnnexOutput for RegisterURLOutput {
-    fn deserialize(data: Bytes) -> Result<Self, anyhow::Error> {
-        serde_json::from_slice(&data)
+    fn deserialize(data: &str) -> Result<Self, anyhow::Error> {
+        serde_json::from_str(data)
             .with_context(|| format!("Unable to decode `git-annex registerurl` output: {data:?}"))
     }
 }

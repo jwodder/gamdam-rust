@@ -6,7 +6,7 @@ mod registerurl;
 pub use addurl::*;
 use anyhow::Context;
 use async_trait::async_trait;
-use bytes::Bytes;
+use futures::sink::SinkExt;
 use log::{debug, warn};
 pub use metadata::*;
 pub use registerurl::*;
@@ -17,15 +17,19 @@ use std::time::Duration;
 use tokio::io::AsyncWriteExt;
 use tokio::process::{Child, ChildStdin, ChildStdout, Command};
 use tokio::time;
+use tokio_stream::{Stream, StreamExt};
+use tokio_util::codec::{FramedRead, FramedWrite, LinesCodec};
 
 pub struct RawAnnexProcess {
     name: String,
     p: Child,
-    stdin: ChildStdin,
-    stdout: ChildStdout,
+    stdin: FramedWrite<ChildStdin, LinesCodec>,
+    stdout: FramedRead<ChildStdout, LinesCodec>,
 }
 
 impl RawAnnexProcess {
+    pub const MAX_INPUT_LEN: usize = 65535;
+
     pub async fn new<I, S, P>(name: &str, args: I, repo: P) -> Result<Self, anyhow::Error>
     where
         I: IntoIterator<Item = S>,
@@ -47,14 +51,14 @@ impl RawAnnexProcess {
         Ok(RawAnnexProcess {
             name: String::from(name),
             p,
-            stdin,
-            stdout,
+            stdin: FramedWrite::new(stdin, LinesCodec::new()),
+            stdout: FramedRead::new(stdout, LinesCodec::new_with_max_length(Self::MAX_INPUT_LEN)),
         })
     }
 
     pub async fn shutdown(mut self, timeout: Option<Duration>) -> Result<(), anyhow::Error> {
-        drop(self.stdin);
-        drop(self.stdout);
+        drop(self.stdin.into_inner());
+        drop(self.stdout.into_inner());
         debug!("Waiting for `git-annex {}` to terminate", self.name);
         let rc = match timeout {
             None => self.p.wait().await,
@@ -86,20 +90,20 @@ impl RawAnnexProcess {
         Ok(())
     }
 
-    pub async fn writeline(&mut self, line: &[u8]) -> Result<(), anyhow::Error> {
-        // This function is the one that adds the '\n'
-        let mut buf = Vec::with_capacity(line.len() + 1);
-        buf.extend_from_slice(line);
-        buf.push(b'\n');
+    pub async fn writeline(&mut self, line: &str) -> Result<(), anyhow::Error> {
+        // The LinesCodec adds the '\n'
+        // send() always flushes
         self.stdin
-            .write_all(&buf)
+            .send(line)
             .await
-            .with_context(|| format!("Error writing to `git-annex {}`", self.name))?;
-        Ok(())
+            .with_context(|| format!("Error writing to `git-annex {}`", self.name))
     }
 
-    pub async fn readline(&mut self) -> Result<Bytes, anyhow::Error> {
-        unimplemented!()
+    pub async fn readline(&mut self) -> Option<Result<String, anyhow::Error>> {
+        self.stdout
+            .next()
+            .await
+            .map(|r| r.with_context(|| format!("Error reading from `git-annex {}`", self.name)))
     }
 }
 
@@ -120,29 +124,36 @@ pub trait AnnexProcess {
         self.process().writeline(&value.serialize()).await
     }
 
-    async fn recv(&mut self) -> Result<Self::Output, anyhow::Error>
+    async fn recv(&mut self) -> Option<Result<Self::Output, anyhow::Error>>
     where
         Self::Output: AnnexOutput,
     {
-        Self::Output::deserialize(self.process().readline().await?)
+        match self.process().readline().await {
+            Some(Ok(v)) => Some(Self::Output::deserialize(&v)),
+            Some(Err(e)) => Some(Err(e)),
+            None => None,
+        }
     }
 
-    async fn chat(&mut self, value: Self::Input) -> Result<Self::Output, anyhow::Error>
+    async fn chat(&mut self, value: Self::Input) -> Option<Result<Self::Output, anyhow::Error>>
     where
         Self::Input: AnnexInput + Send,
         Self::Output: AnnexOutput,
     {
-        self.send(value).await?;
+        match self.send(value).await {
+            Ok(_) => (),
+            Err(e) => return Some(Err(e)),
+        }
         self.recv().await
     }
 }
 
 pub trait AnnexInput {
-    fn serialize(self) -> Bytes;
+    fn serialize(self) -> String;
 }
 
 pub trait AnnexOutput {
-    fn deserialize(data: Bytes) -> Result<Self, anyhow::Error>
+    fn deserialize(data: &str) -> Result<Self, anyhow::Error>
     where
         Self: Sized;
 }
