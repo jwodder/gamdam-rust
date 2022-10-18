@@ -2,7 +2,7 @@
 use super::outputs::{Action, AnnexResult};
 use super::*;
 use anyhow::Context;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -32,6 +32,7 @@ impl AnnexProcess for Metadata {
     }
 }
 
+#[derive(Clone, Debug, Serialize, Eq, PartialEq)]
 pub struct MetadataInput {
     pub file: String,
     pub fields: HashMap<String, Vec<String>>,
@@ -39,7 +40,10 @@ pub struct MetadataInput {
 
 impl AnnexInput for MetadataInput {
     fn serialize(self) -> String {
-        unimplemented!()
+        match serde_json::to_string(&self) {
+            Ok(s) => s,
+            Err(e) => panic!("Unexpected failure serializing MetadataInput: {self:?}: {e:?}"),
+        }
     }
 }
 
@@ -90,5 +94,15 @@ mod tests {
                 note: Some(String::from("color=blue\ncolor-lastchanged=2022-10-17@19-53-03\nflavors=charmed\nflavors=strange\nflavors-lastchanged=2022-10-17@19-53-03\nlastchanged=2022-10-17@19-53-03\n")),
             }
         )
+    }
+
+    #[test]
+    fn test_dump_metadata_input() {
+        let mi = MetadataInput {
+            file: String::from("file.txt"),
+            fields: HashMap::from([(String::from("color"), vec![String::from("blue")])]),
+        };
+        let s = r#"{"file":"file.txt","fields":{"color":["blue"]}}"#;
+        assert_eq!(mi.serialize(), s);
     }
 }
