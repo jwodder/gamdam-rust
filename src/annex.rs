@@ -4,15 +4,18 @@ mod metadata;
 mod outputs;
 mod registerurl;
 pub use addurl::*;
+use anyhow::Context;
 use async_trait::async_trait;
 use bytes::Bytes;
-use log::debug;
+use log::{debug, warn};
 pub use metadata::*;
 pub use registerurl::*;
 use std::ffi::OsStr;
 use std::path::Path;
 use std::process::Stdio;
+use std::time::Duration;
 use tokio::process::{Child, ChildStdin, ChildStdout, Command};
+use tokio::time;
 
 pub struct RawAnnexProcess {
     name: String,
@@ -47,6 +50,37 @@ impl RawAnnexProcess {
         })
     }
 
+    pub async fn shutdown(mut self, timeout: Option<Duration>) -> Result<(), anyhow::Error> {
+        drop(self.stdin);
+        drop(self.stdout);
+        debug!("Waiting for `git-annex {}` to terminate", self.name);
+        let rc = match timeout {
+            None => self.p.wait().await,
+            Some(delta) => match time::timeout(delta, self.p.wait()).await {
+                Err(_) => {
+                    warn!(
+                        "`git-annex {}` did not terminate in time; killing",
+                        self.name
+                    );
+                    self.p.kill().await?;
+                    return Ok(());
+                }
+                Ok(rc) => rc,
+            },
+        }
+        .with_context(|| format!("Error waiting for `git-annex {}` to terminate", self.name))?;
+        if !rc.success() {
+            match rc.code() {
+                Some(r) => warn!(
+                    "`git-annex {}` command exited with return code {}",
+                    self.name, r
+                ),
+                None => warn!("`git-annex {}` command was killed by a signal", self.name),
+            }
+        }
+        Ok(())
+    }
+
     pub async fn writeline(&self, line: &[u8]) -> Result<(), anyhow::Error> {
         // This function is the one that adds the '\n'
         unimplemented!()
@@ -55,8 +89,6 @@ impl RawAnnexProcess {
     pub async fn readline(&self) -> Result<Bytes, anyhow::Error> {
         unimplemented!()
     }
-
-    // TODO: Method(s) for closing/terminating/killing
 }
 
 #[async_trait]
