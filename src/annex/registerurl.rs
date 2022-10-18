@@ -4,6 +4,7 @@ use super::*;
 use anyhow::Context;
 use serde::Deserialize;
 use std::path::Path;
+use url::Url;
 
 pub struct RegisterURL {
     process: RawAnnexProcess,
@@ -33,7 +34,7 @@ impl AnnexProcess for RegisterURL {
 
 pub struct RegisterURLInput {
     pub key: String,
-    pub url: String,
+    pub url: Url,
 }
 
 impl AnnexInput for RegisterURLInput {

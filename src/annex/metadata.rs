@@ -2,6 +2,7 @@
 use super::outputs::{Action, AnnexResult};
 use super::*;
 use anyhow::Context;
+use relative_path::RelativePathBuf;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
@@ -34,7 +35,7 @@ impl AnnexProcess for Metadata {
 
 #[derive(Clone, Debug, Serialize, Eq, PartialEq)]
 pub struct MetadataInput {
-    pub file: String,
+    pub file: RelativePathBuf,
     pub fields: HashMap<String, Vec<String>>,
 }
 
@@ -83,7 +84,7 @@ mod tests {
                     (String::from("lastchanged"), vec![String::from("2022-10-17@19-53-03")]),
                 ]),
                 action: Action {
-                    file: Some(String::from("file.txt")),
+                    file: Some(RelativePathBuf::from_path("file.txt").unwrap()),
                     command: String::from("metadata"),
                     input: vec![String::from(r#"{"file": "file.txt", "fields": {"color": ["blue"], "flavors": ["strange", "charmed"], "mouthfeel": []}}"#)],
                 },
@@ -99,7 +100,7 @@ mod tests {
     #[test]
     fn test_dump_metadata_input() {
         let mi = MetadataInput {
-            file: String::from("file.txt"),
+            file: RelativePathBuf::from_path("file.txt").unwrap(),
             fields: HashMap::from([(String::from("color"), vec![String::from("blue")])]),
         };
         let s = r#"{"file":"file.txt","fields":{"color":["blue"]}}"#;

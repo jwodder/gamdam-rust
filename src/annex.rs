@@ -144,6 +144,7 @@ pub trait AnnexProcess {
             Ok(_) => (),
             Err(e) => return Some(Err(e)),
         }
+        // TODO: Error if recv() returns None
         self.recv().await
     }
 }

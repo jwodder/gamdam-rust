@@ -2,9 +2,11 @@
 use super::outputs::{Action, AnnexResult};
 use super::*;
 use anyhow::Context;
+use relative_path::RelativePathBuf;
 use serde::Deserialize;
 use std::fmt;
 use std::path::Path;
+use url::Url;
 
 pub enum Jobs {
     CPUs,
@@ -58,8 +60,8 @@ impl AnnexProcess for AddURL {
 }
 
 pub struct AddURLInput {
-    pub url: String,
-    pub path: String,
+    pub url: Url,
+    pub path: RelativePathBuf,
 }
 
 impl AnnexInput for AddURLInput {
@@ -110,7 +112,7 @@ mod tests {
                 key: Some(String::from("MD5E-s3405224--dd15380fc1b27858f647a30cc2399a52.pdf")),
                 action: Action {
                     command: String::from("addurl"),
-                    file: Some(String::from("programming/gameboy.pdf")),
+                    file: Some(RelativePathBuf::from_path("programming/gameboy.pdf").unwrap()),
                     input: vec![String::from("https://archive.org/download/GameBoyProgManVer1.1/GameBoyProgManVer1.1.pdf programming/gameboy.pdf")],
                 },
                 result: AnnexResult {
@@ -131,7 +133,7 @@ mod tests {
                 key: None,
                 action: Action {
                     command: String::from("addurl"),
-                    file: Some(String::from("text/shakespeare/hamlet.txt")),
+                    file: Some(RelativePathBuf::from_path("text/shakespeare/hamlet.txt").unwrap()),
                     input: vec![String::from("https://gutenberg.org/files/1524/1524-0.txt text/shakespeare/hamlet.txt")],
                 },
                 result: AnnexResult {
@@ -153,7 +155,7 @@ mod tests {
                 key: None,
                 action: Action {
                     command: String::from("addurl"),
-                    file: Some(String::from("nexists.pdf")),
+                    file: Some(RelativePathBuf::from_path("nexists.pdf").unwrap()),
                     input: vec![String::from(
                         "https://www.varonathe.org/nonexistent.pdf nexists.pdf"
                     )],
@@ -178,7 +180,7 @@ mod tests {
                 percent_progress: Some(String::from("17.79%")),
                 action: Action {
                     command: String::from("addurl"),
-                    file: Some(String::from("programming/gameboy.pdf")),
+                    file: Some(RelativePathBuf::from_path("programming/gameboy.pdf").unwrap()),
                     input: vec![String::from("https://archive.org/download/GameBoyProgManVer1.1/GameBoyProgManVer1.1.pdf programming/gameboy.pdf")],
                 },
             }

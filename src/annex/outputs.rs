@@ -1,3 +1,4 @@
+use relative_path::RelativePathBuf;
 use serde::Deserialize;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
@@ -12,6 +13,6 @@ pub struct Action {
     pub command: String,
     // `file` can be `None` for an in-progress download requested without an
     // explicit download path
-    pub file: Option<String>,
+    pub file: Option<RelativePathBuf>,
     pub input: Vec<String>,
 }
