@@ -52,8 +52,8 @@ impl AnnexProcess for AddURL {
     type Input = AddURLInput;
     type Output = AddURLOutput;
 
-    fn process(&self) -> &RawAnnexProcess {
-        &self.process
+    fn process(&mut self) -> &mut RawAnnexProcess {
+        &mut self.process
     }
 }
 

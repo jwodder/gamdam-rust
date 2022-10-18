@@ -26,8 +26,8 @@ impl AnnexProcess for RegisterURL {
     type Input = RegisterURLInput;
     type Output = RegisterURLOutput;
 
-    fn process(&self) -> &RawAnnexProcess {
-        &self.process
+    fn process(&mut self) -> &mut RawAnnexProcess {
+        &mut self.process
     }
 }
 

@@ -27,8 +27,8 @@ impl AnnexProcess for Metadata {
     type Input = MetadataInput;
     type Output = MetadataOutput;
 
-    fn process(&self) -> &RawAnnexProcess {
-        &self.process
+    fn process(&mut self) -> &mut RawAnnexProcess {
+        &mut self.process
     }
 }
 

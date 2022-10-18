@@ -14,6 +14,7 @@ use std::ffi::OsStr;
 use std::path::Path;
 use std::process::Stdio;
 use std::time::Duration;
+use tokio::io::AsyncWriteExt;
 use tokio::process::{Child, ChildStdin, ChildStdout, Command};
 use tokio::time;
 
@@ -81,12 +82,16 @@ impl RawAnnexProcess {
         Ok(())
     }
 
-    pub async fn writeline(&self, line: &[u8]) -> Result<(), anyhow::Error> {
+    pub async fn writeline(&mut self, line: &[u8]) -> Result<(), anyhow::Error> {
         // This function is the one that adds the '\n'
-        unimplemented!()
+        let mut buf = Vec::with_capacity(line.len() + 1);
+        buf.extend_from_slice(line);
+        buf.push(b'\n');
+        self.stdin.write_all(&buf).await?;
+        Ok(())
     }
 
-    pub async fn readline(&self) -> Result<Bytes, anyhow::Error> {
+    pub async fn readline(&mut self) -> Result<Bytes, anyhow::Error> {
         unimplemented!()
     }
 }
@@ -96,26 +101,26 @@ pub trait AnnexProcess {
     type Input;
     type Output;
 
-    fn process(&self) -> &RawAnnexProcess;
+    fn process(&mut self) -> &mut RawAnnexProcess;
 
     // TODO: Method for passing to a Func and closing/terminating/killing on
     // return
 
-    async fn send(&self, value: Self::Input) -> Result<(), anyhow::Error>
+    async fn send(&mut self, value: Self::Input) -> Result<(), anyhow::Error>
     where
         Self::Input: AnnexInput + Send,
     {
         self.process().writeline(&value.serialize()).await
     }
 
-    async fn recv(&self) -> Result<Self::Output, anyhow::Error>
+    async fn recv(&mut self) -> Result<Self::Output, anyhow::Error>
     where
         Self::Output: AnnexOutput,
     {
         Self::Output::deserialize(self.process().readline().await?)
     }
 
-    async fn chat(&self, value: Self::Input) -> Result<Self::Output, anyhow::Error>
+    async fn chat(&mut self, value: Self::Input) -> Result<Self::Output, anyhow::Error>
     where
         Self::Input: AnnexInput + Send,
         Self::Output: AnnexOutput,
