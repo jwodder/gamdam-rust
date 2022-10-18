@@ -1,6 +1,7 @@
 #![allow(unused)]
 use super::outputs::{Action, AnnexResult};
 use super::*;
+use anyhow::Context;
 use bytes::Bytes;
 use serde::Deserialize;
 use std::fmt;
@@ -92,7 +93,8 @@ pub enum AddURLOutput {
 
 impl AnnexOutput for AddURLOutput {
     fn deserialize(data: Bytes) -> Result<Self, anyhow::Error> {
-        Ok(serde_json::from_slice(&data)?)
+        serde_json::from_slice(&data)
+            .with_context(|| format!("Unable to decode `git-annex addurl` output: {data:?}"))
     }
 }
 

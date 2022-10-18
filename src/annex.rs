@@ -40,7 +40,8 @@ impl RawAnnexProcess {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .current_dir(repo)
-            .spawn()?;
+            .spawn()
+            .with_context(|| format!("Error spawning `git-annex {name}`"))?;
         let stdin = p.stdin.take().expect("Child.stdin was unexpectedly None");
         let stdout = p.stdout.take().expect("Child.stdin was unexpectedly None");
         Ok(RawAnnexProcess {
@@ -63,7 +64,10 @@ impl RawAnnexProcess {
                         "`git-annex {}` did not terminate in time; killing",
                         self.name
                     );
-                    self.p.kill().await?;
+                    self.p
+                        .kill()
+                        .await
+                        .with_context(|| format!("Error killing `git-annex {}`", self.name))?;
                     return Ok(());
                 }
                 Ok(rc) => rc,
@@ -87,7 +91,10 @@ impl RawAnnexProcess {
         let mut buf = Vec::with_capacity(line.len() + 1);
         buf.extend_from_slice(line);
         buf.push(b'\n');
-        self.stdin.write_all(&buf).await?;
+        self.stdin
+            .write_all(&buf)
+            .await
+            .with_context(|| format!("Error writing to `git-annex {}`", self.name))?;
         Ok(())
     }
 
