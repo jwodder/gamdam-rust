@@ -2,7 +2,7 @@
 mod annex;
 mod blc;
 use crate::annex::addurl::*;
-//use crate::annex::metadata::*;
+use crate::annex::metadata::*;
 use crate::annex::registerurl::*;
 use crate::annex::*;
 use relative_path::RelativePathBuf;
