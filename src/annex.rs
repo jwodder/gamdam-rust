@@ -21,7 +21,7 @@ use std::time::Duration;
 use tokio::process::{Child, ChildStdin, ChildStdout, Command};
 use tokio::time;
 use tokio_serde::formats::Json;
-use tokio_serde::{Deserializer, Framed, Serializer};
+use tokio_serde::{Framed, Serializer};
 use tokio_util::codec::{FramedRead, FramedWrite};
 
 type StdinTransport = FramedWrite<ChildStdin, BinaryLinesCodec>;
@@ -74,9 +74,7 @@ impl<Input, Output> AnnexProcess<Input, Output> {
         Input: AnnexInput,
         <Input as AnnexInput>::Error: Into<BinaryLinesCodecError>,
         <StdoutTransport as TryStream>::Error: From<serde_json::Error>,
-        AnnexCodec: Deserializer<Output>,
-        Output: for<'a> Deserialize<'a>,
-        Output: std::marker::Unpin,
+        Output: for<'a> Deserialize<'a> + std::marker::Unpin,
     {
         // send() always flushes
         match self.stdin.send(value).await {
