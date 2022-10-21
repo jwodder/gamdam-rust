@@ -1,63 +1,10 @@
-#![allow(unused)]
+#![allow(dead_code)]
 use super::outputs::{Action, AnnexResult};
 use super::*;
-use anyhow::Context;
+use bytes::Bytes;
 use relative_path::RelativePathBuf;
 use serde::Deserialize;
-use std::fmt;
-use std::path::Path;
 use url::Url;
-
-pub enum Jobs {
-    CPUs,
-    Qty(u32),
-}
-
-impl fmt::Display for Jobs {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Jobs::CPUs => write!(f, "cpus"),
-            Jobs::Qty(n) => write!(f, "{n}"),
-        }
-    }
-}
-
-pub struct AddURL {
-    process: RawAnnexProcess,
-}
-
-impl AddURL {
-    pub async fn new<I, S, P>(jobs: Jobs, options: I, repo: P) -> Result<Self, anyhow::Error>
-    where
-        I: IntoIterator<Item = S>,
-        S: AsRef<str>,
-        P: AsRef<Path>,
-    {
-        // TODO: Figure out how to do this without creating a bunch of Strings
-        let mut args = vec![
-            String::from("--batch"),
-            String::from("--with-files"),
-            String::from("--jobs"),
-            jobs.to_string(),
-            String::from("--json"),
-            String::from("--json-error-messages"),
-            String::from("--json-progress"),
-        ];
-        args.extend(options.into_iter().map(|s| String::from(s.as_ref())));
-        Ok(AddURL {
-            process: RawAnnexProcess::new("addurl", args, repo).await?,
-        })
-    }
-}
-
-impl AnnexProcess for AddURL {
-    type Input = AddURLInput;
-    type Output = AddURLOutput;
-
-    fn process(&mut self) -> &mut RawAnnexProcess {
-        &mut self.process
-    }
-}
 
 pub struct AddURLInput {
     pub url: Url,
@@ -65,8 +12,10 @@ pub struct AddURLInput {
 }
 
 impl AnnexInput for AddURLInput {
-    fn serialize(self) -> String {
-        format!("{} {}", self.url, self.path)
+    type Error = std::io::Error;
+
+    fn for_input(&self) -> Result<Bytes, Self::Error> {
+        Ok(Bytes::from(format!("{} {}", self.url, self.path)))
     }
 }
 
@@ -90,13 +39,6 @@ pub enum AddURLOutput {
         #[serde(default)]
         note: Option<String>,
     },
-}
-
-impl AnnexOutput for AddURLOutput {
-    fn deserialize(data: &str) -> Result<Self, anyhow::Error> {
-        serde_json::from_str(data)
-            .with_context(|| format!("Unable to decode `git-annex addurl` output: {data:?}"))
-    }
 }
 
 #[cfg(test)]

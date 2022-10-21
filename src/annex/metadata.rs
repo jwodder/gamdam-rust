@@ -1,37 +1,10 @@
-#![allow(unused)]
+#![allow(dead_code)]
 use super::outputs::{Action, AnnexResult};
 use super::*;
-use anyhow::Context;
+use bytes::Bytes;
 use relative_path::RelativePathBuf;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::Path;
-
-pub struct Metadata {
-    process: RawAnnexProcess,
-}
-
-impl Metadata {
-    pub async fn new<P: AsRef<Path>>(repo: P) -> Result<Self, anyhow::Error> {
-        Ok(Metadata {
-            process: RawAnnexProcess::new(
-                "metadata",
-                ["--batch", "--json", "--json-error-messages"],
-                repo,
-            )
-            .await?,
-        })
-    }
-}
-
-impl AnnexProcess for Metadata {
-    type Input = MetadataInput;
-    type Output = MetadataOutput;
-
-    fn process(&mut self) -> &mut RawAnnexProcess {
-        &mut self.process
-    }
-}
 
 #[derive(Clone, Debug, Serialize, Eq, PartialEq)]
 pub struct MetadataInput {
@@ -40,11 +13,10 @@ pub struct MetadataInput {
 }
 
 impl AnnexInput for MetadataInput {
-    fn serialize(self) -> String {
-        match serde_json::to_string(&self) {
-            Ok(s) => s,
-            Err(e) => panic!("Unexpected failure serializing MetadataInput: {self:?}: {e:?}"),
-        }
+    type Error = serde_json::Error;
+
+    fn for_input(&self) -> Result<Bytes, Self::Error> {
+        Ok(Bytes::from(serde_json::to_string(&self)?))
     }
 }
 
@@ -57,13 +29,6 @@ pub struct MetadataOutput {
     pub result: AnnexResult,
     #[serde(default)]
     pub note: Option<String>,
-}
-
-impl AnnexOutput for MetadataOutput {
-    fn deserialize(data: &str) -> Result<Self, anyhow::Error> {
-        serde_json::from_str(data)
-            .with_context(|| format!("Unable to decode `git-annex metadata` output: {data:?}"))
-    }
 }
 
 #[cfg(test)]
@@ -103,7 +68,7 @@ mod tests {
             file: RelativePathBuf::from_path("file.txt").unwrap(),
             fields: HashMap::from([(String::from("color"), vec![String::from("blue")])]),
         };
-        let s = r#"{"file":"file.txt","fields":{"color":["blue"]}}"#;
-        assert_eq!(mi.serialize(), s);
+        let s = &br#"{"file":"file.txt","fields":{"color":["blue"]}}"#[..];
+        assert_eq!(mi.for_input().unwrap(), s);
     }
 }

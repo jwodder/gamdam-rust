@@ -1,33 +1,40 @@
-#![allow(unused)]
-mod addurl;
-mod metadata;
-mod outputs;
-mod registerurl;
+#![allow(dead_code)]
+pub(crate) mod addurl;
+pub(crate) mod metadata;
+pub(crate) mod outputs;
+pub(crate) mod registerurl;
+use crate::blc::{BinaryLinesCodec, BinaryLinesCodecError};
 pub use addurl::*;
 use anyhow::Context;
-use async_trait::async_trait;
+use bytes::Bytes;
 use futures::sink::SinkExt;
+use futures::stream::{StreamExt, TryStream};
 use log::{debug, warn};
 pub use metadata::*;
 pub use registerurl::*;
+use serde::Deserialize;
 use std::ffi::OsStr;
 use std::path::Path;
+use std::pin::Pin;
 use std::process::Stdio;
 use std::time::Duration;
-use tokio::io::AsyncWriteExt;
 use tokio::process::{Child, ChildStdin, ChildStdout, Command};
 use tokio::time;
-use tokio_stream::{Stream, StreamExt};
-use tokio_util::codec::{FramedRead, FramedWrite, LinesCodec};
+use tokio_serde::formats::Json;
+use tokio_serde::{Deserializer, Framed, Serializer};
+use tokio_util::codec::{FramedRead, FramedWrite};
 
-pub struct RawAnnexProcess {
+type StdinTransport = FramedWrite<ChildStdin, BinaryLinesCodec>;
+type StdoutTransport = FramedRead<ChildStdout, BinaryLinesCodec>;
+
+pub struct AnnexProcess<Input, Output> {
     name: String,
     p: Child,
-    stdin: FramedWrite<ChildStdin, LinesCodec>,
-    stdout: FramedRead<ChildStdout, LinesCodec>,
+    stdin: Framed<StdinTransport, (), Input, AnnexCodec>,
+    stdout: Framed<StdoutTransport, Output, (), Json<Output, ()>>,
 }
 
-impl RawAnnexProcess {
+impl<Input, Output> AnnexProcess<Input, Output> {
     pub const MAX_INPUT_LEN: usize = 65535;
 
     pub async fn new<I, S, P>(name: &str, args: I, repo: P) -> Result<Self, anyhow::Error>
@@ -48,17 +55,49 @@ impl RawAnnexProcess {
             .with_context(|| format!("Error spawning `git-annex {name}`"))?;
         let stdin = p.stdin.take().expect("Child.stdin was unexpectedly None");
         let stdout = p.stdout.take().expect("Child.stdout was unexpectedly None");
-        Ok(RawAnnexProcess {
+        Ok(AnnexProcess {
             name: String::from(name),
             p,
-            stdin: FramedWrite::new(stdin, LinesCodec::new()),
-            stdout: FramedRead::new(stdout, LinesCodec::new_with_max_length(Self::MAX_INPUT_LEN)),
+            stdin: Framed::new(FramedWrite::new(stdin, BinaryLinesCodec::new()), AnnexCodec),
+            stdout: Framed::new(
+                FramedRead::new(
+                    stdout,
+                    BinaryLinesCodec::new_with_max_length(Self::MAX_INPUT_LEN),
+                ),
+                Json::default(),
+            ),
         })
     }
 
+    async fn chat(&mut self, value: Input) -> Option<Result<Output, anyhow::Error>>
+    where
+        Input: AnnexInput,
+        <Input as AnnexInput>::Error: Into<BinaryLinesCodecError>,
+        <StdoutTransport as TryStream>::Error: From<serde_json::Error>,
+        AnnexCodec: Deserializer<Output>,
+        Output: for<'a> Deserialize<'a>,
+        Output: std::marker::Unpin,
+    {
+        // send() always flushes
+        match self.stdin.send(value).await {
+            Ok(_) => (),
+            Err(e) => {
+                return Some(
+                    Err(e).with_context(|| format!("Error writing to `git-annex {}`", self.name)),
+                )
+            }
+        }
+        // TODO: Error if next() returns None
+        // TODO: Use futures::stream::TryStreamExt's try_next()
+        self.stdout
+            .next()
+            .await
+            .map(|r| r.with_context(|| format!("Error reading from `git-annex {}`", self.name)))
+    }
+
     pub async fn shutdown(mut self, timeout: Option<Duration>) -> Result<(), anyhow::Error> {
-        drop(self.stdin.into_inner());
-        drop(self.stdout.into_inner());
+        drop(self.stdin);
+        drop(self.stdout);
         debug!("Waiting for `git-annex {}` to terminate", self.name);
         let rc = match timeout {
             None => self.p.wait().await,
@@ -89,72 +128,20 @@ impl RawAnnexProcess {
         }
         Ok(())
     }
-
-    pub async fn writeline(&mut self, line: &str) -> Result<(), anyhow::Error> {
-        // The LinesCodec adds the '\n'
-        // send() always flushes
-        self.stdin
-            .send(line)
-            .await
-            .with_context(|| format!("Error writing to `git-annex {}`", self.name))
-    }
-
-    pub async fn readline(&mut self) -> Option<Result<String, anyhow::Error>> {
-        self.stdout
-            .next()
-            .await
-            .map(|r| r.with_context(|| format!("Error reading from `git-annex {}`", self.name)))
-    }
-}
-
-#[async_trait]
-pub trait AnnexProcess {
-    type Input;
-    type Output;
-
-    fn process(&mut self) -> &mut RawAnnexProcess;
-
-    // TODO: Method for passing to a Func and closing/terminating/killing on
-    // return
-
-    async fn send(&mut self, value: Self::Input) -> Result<(), anyhow::Error>
-    where
-        Self::Input: AnnexInput + Send,
-    {
-        self.process().writeline(&value.serialize()).await
-    }
-
-    async fn recv(&mut self) -> Option<Result<Self::Output, anyhow::Error>>
-    where
-        Self::Output: AnnexOutput,
-    {
-        match self.process().readline().await {
-            Some(Ok(v)) => Some(Self::Output::deserialize(&v)),
-            Some(Err(e)) => Some(Err(e)),
-            None => None,
-        }
-    }
-
-    async fn chat(&mut self, value: Self::Input) -> Option<Result<Self::Output, anyhow::Error>>
-    where
-        Self::Input: AnnexInput + Send,
-        Self::Output: AnnexOutput,
-    {
-        match self.send(value).await {
-            Ok(_) => (),
-            Err(e) => return Some(Err(e)),
-        }
-        // TODO: Error if recv() returns None
-        self.recv().await
-    }
 }
 
 pub trait AnnexInput {
-    fn serialize(self) -> String;
+    type Error;
+
+    fn for_input(&self) -> Result<Bytes, Self::Error>;
 }
 
-pub trait AnnexOutput {
-    fn deserialize(data: &str) -> Result<Self, anyhow::Error>
-    where
-        Self: Sized;
+pub struct AnnexCodec;
+
+impl<I: AnnexInput> Serializer<I> for AnnexCodec {
+    type Error = I::Error;
+
+    fn serialize(self: Pin<&mut Self>, item: &I) -> Result<Bytes, Self::Error> {
+        item.for_input()
+    }
 }

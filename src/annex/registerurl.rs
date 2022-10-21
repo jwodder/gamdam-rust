@@ -1,36 +1,9 @@
-#![allow(unused)]
+#![allow(dead_code)]
 use super::outputs::{Action, AnnexResult};
 use super::*;
-use anyhow::Context;
+use bytes::Bytes;
 use serde::Deserialize;
-use std::path::Path;
 use url::Url;
-
-pub struct RegisterURL {
-    process: RawAnnexProcess,
-}
-
-impl RegisterURL {
-    pub async fn new<P: AsRef<Path>>(repo: P) -> Result<Self, anyhow::Error> {
-        Ok(RegisterURL {
-            process: RawAnnexProcess::new(
-                "registerurl",
-                ["--batch", "--json", "--json-error-messages"],
-                repo,
-            )
-            .await?,
-        })
-    }
-}
-
-impl AnnexProcess for RegisterURL {
-    type Input = RegisterURLInput;
-    type Output = RegisterURLOutput;
-
-    fn process(&mut self) -> &mut RawAnnexProcess {
-        &mut self.process
-    }
-}
 
 pub struct RegisterURLInput {
     pub key: String,
@@ -38,8 +11,10 @@ pub struct RegisterURLInput {
 }
 
 impl AnnexInput for RegisterURLInput {
-    fn serialize(self) -> String {
-        format!("{} {}", self.key, self.url)
+    type Error = std::io::Error;
+
+    fn for_input(&self) -> Result<Bytes, Self::Error> {
+        Ok(Bytes::from(format!("{} {}", self.key, self.url)))
     }
 }
 
@@ -49,13 +24,6 @@ pub struct RegisterURLOutput {
     pub action: Action,
     #[serde(flatten)]
     pub result: AnnexResult,
-}
-
-impl AnnexOutput for RegisterURLOutput {
-    fn deserialize(data: &str) -> Result<Self, anyhow::Error> {
-        serde_json::from_str(data)
-            .with_context(|| format!("Unable to decode `git-annex registerurl` output: {data:?}"))
-    }
 }
 
 #[cfg(test)]
