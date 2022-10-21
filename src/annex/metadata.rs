@@ -68,7 +68,7 @@ mod tests {
             file: RelativePathBuf::from_path("file.txt").unwrap(),
             fields: HashMap::from([(String::from("color"), vec![String::from("blue")])]),
         };
-        let s = &br#"{"file":"file.txt","fields":{"color":["blue"]}}"#[..];
+        let s = r#"{"file":"file.txt","fields":{"color":["blue"]}}"#.as_bytes();
         assert_eq!(mi.for_input().unwrap(), s);
     }
 }
