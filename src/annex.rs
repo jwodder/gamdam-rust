@@ -47,7 +47,7 @@ impl RawAnnexProcess {
             .spawn()
             .with_context(|| format!("Error spawning `git-annex {name}`"))?;
         let stdin = p.stdin.take().expect("Child.stdin was unexpectedly None");
-        let stdout = p.stdout.take().expect("Child.stdin was unexpectedly None");
+        let stdout = p.stdout.take().expect("Child.stdout was unexpectedly None");
         Ok(RawAnnexProcess {
             name: String::from(name),
             p,
