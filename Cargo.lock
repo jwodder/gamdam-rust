@@ -163,7 +163,6 @@ dependencies = [
  "serde_json",
  "tokio",
  "tokio-serde",
- "tokio-stream",
  "tokio-util",
  "url",
 ]
@@ -443,17 +442,6 @@ dependencies = [
  "pin-project",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "tokio-stream"
-version = "0.1.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d660770404473ccd7bc9f8b28494a811bc18542b915c0855c51e8f419d5223ce"
-dependencies = [
- "futures-core",
- "pin-project-lite",
- "tokio",
 ]
 
 [[package]]
