@@ -33,11 +33,10 @@ pub struct MetadataOutput {
 
 impl MetadataOutput {
     pub(crate) fn file(&self) -> &RelativePath {
-        //(&self.action.file).as_ref().unwrap_or_else(|| RelativePath::from_path("<unknown file>").unwrap())
-        match &self.action.file {
-            Some(f) => f,
-            None => RelativePath::from_path("<unknown file>").unwrap(),
-        }
+        self.action
+            .file
+            .as_deref()
+            .unwrap_or_else(|| RelativePath::from_path("<unknown file>").unwrap())
     }
 
     pub(crate) fn check(self) -> Result<Self, AnnexError> {

@@ -51,11 +51,10 @@ impl AddURLOutput {
             AddURLOutput::Progress { action, .. } => action,
             AddURLOutput::Completion { action, .. } => action,
         };
-        //action.file.as_ref().unwrap_or_else(|| RelativePath::from_path("<unknown file>").unwrap())
-        match &action.file {
-            Some(f) => f,
-            None => RelativePath::from_path("<unknown file>").unwrap(),
-        }
+        action
+            .file
+            .as_deref()
+            .unwrap_or_else(|| RelativePath::from_path("<unknown file>").unwrap())
     }
 
     pub(crate) fn check(self) -> Result<Self, AnnexError> {

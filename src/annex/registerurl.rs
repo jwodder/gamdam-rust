@@ -2,7 +2,6 @@
 use super::outputs::{Action, AnnexResult};
 use super::*;
 use bytes::Bytes;
-use relative_path::RelativePath;
 use serde::Deserialize;
 use url::Url;
 
@@ -28,28 +27,12 @@ pub struct RegisterURLOutput {
 }
 
 impl RegisterURLOutput {
-    pub(crate) fn file(&self) -> &RelativePath {
-        //self.action.file.unwrap_or_else(|| RelativePath::from_path("<unknown file>").unwrap())
-        match &self.action.file {
-            Some(f) => f,
-            None => RelativePath::from_path("<unknown file>").unwrap(),
-        }
-    }
-
-    pub(crate) fn url(&self) -> &str {
-        //self.action.input.get(1).unwrap_or("<unknown URL>")
-        match self.action.input.get(1) {
-            Some(s) => s,
-            None => "<unknown URL>",
-        }
-    }
-
     pub(crate) fn check(self) -> Result<Self, AnnexError> {
         if self.result.success {
             Ok(self)
         } else {
             Err(AnnexError {
-                preamble: format!("{}: registering URL {:?} failed", self.file(), self.url()),
+                preamble: "Registering URL failed".into(),
                 errmsgs: self.result.error_messages,
             })
         }
@@ -62,6 +45,9 @@ mod tests {
 
     #[test]
     fn test_load_registerurl_output_success() {
+        // NOTE TO SELF: This is output from an invocation that passed the
+        // arguments on the command line.  An invocation in batch mode will
+        // have `input` set to a list of a single string, the entire line.
         let s = r#"{"command":"registerurl","error-messages":[],"file":null,"input":["SHA256E-s19--6fef386efa7208eaf1c596b6ab2f8a5a3583696ef8649be0552ab3effad1e191.txt","https://www.varonathe.org/tmp/file.txt"],"success":true}"#;
         let parsed = serde_json::from_str::<RegisterURLOutput>(s).unwrap();
         assert_eq!(parsed,
