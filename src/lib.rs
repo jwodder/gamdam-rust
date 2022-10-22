@@ -45,7 +45,6 @@ pub struct Gamdam {
 
 impl Gamdam {
     async fn addurl(&self) -> Result<AnnexProcess<AddURLInput, AddURLOutput>, anyhow::Error> {
-        // TODO: Figure out how to do this without creating a bunch of Strings
         let jobs = self.addurl_jobs.to_string();
         let mut args = vec![
             "--batch",
