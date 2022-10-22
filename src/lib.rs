@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 mod annex;
 mod blc;
+mod util;
 use crate::annex::addurl::*;
 use crate::annex::metadata::*;
 use crate::annex::registerurl::*;
