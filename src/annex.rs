@@ -23,12 +23,14 @@ use tokio_util::codec::{FramedRead, FramedWrite};
 
 type StdinTransport = FramedWrite<ChildStdin, BinaryLinesCodec>;
 type StdoutTransport = FramedRead<ChildStdout, BinaryLinesCodec>;
+type AnnexSink<Input> = Framed<StdinTransport, (), Input, AnnexCodec>;
+type AnnexStream<Output> = Framed<StdoutTransport, Output, (), Json<Output, ()>>;
 
 pub struct AnnexProcess<Input, Output> {
     name: String,
     p: Child,
-    stdin: Framed<StdinTransport, (), Input, AnnexCodec>,
-    stdout: Framed<StdoutTransport, Output, (), Json<Output, ()>>,
+    stdin: AnnexSink<Input>,
+    stdout: AnnexStream<Output>,
 }
 
 impl<Input, Output> AnnexProcess<Input, Output> {
@@ -90,9 +92,28 @@ impl<Input, Output> AnnexProcess<Input, Output> {
             .map(|r| r.with_context(|| format!("Error reading from `git-annex {}`", self.name)))
     }
 
+    pub fn split(self) -> (AnnexTerminator, AnnexSink<Input>, AnnexStream<Output>) {
+        let terminator = AnnexTerminator {
+            name: self.name,
+            p: self.p,
+        };
+        (terminator, self.stdin, self.stdout)
+    }
+
+    pub async fn shutdown(self, timeout: Option<Duration>) -> Result<(), anyhow::Error> {
+        // This drops stdin & stdout:
+        let (terminator, _, _) = self.split();
+        terminator.shutdown(timeout).await
+    }
+}
+
+pub struct AnnexTerminator {
+    name: String,
+    p: Child,
+}
+
+impl AnnexTerminator {
     pub async fn shutdown(mut self, timeout: Option<Duration>) -> Result<(), anyhow::Error> {
-        drop(self.stdin);
-        drop(self.stdout);
         debug!("Waiting for `git-annex {}` to terminate", self.name);
         let rc = match timeout {
             None => self.p.wait().await,

@@ -37,7 +37,6 @@ pub(crate) async fn ensure_annex_repo<P: AsRef<Path>>(repo: P) -> Result<(), any
             })?
             .trim()
             .into()
-        log::debug!("Using {} as the repository root", repo.display());
     } else {
         log::info!(
             "{} is not a Git repository; initializing ...",
@@ -46,6 +45,7 @@ pub(crate) async fn ensure_annex_repo<P: AsRef<Path>>(repo: P) -> Result<(), any
         runcmd(["git", "init"], &repo).await?;
         repo.into()
     };
+    log::debug!("Using {} as the repository root", repo.display());
     log::debug!("Running: git rev-parse --git-dir");
     let git_dir = Command::new("git")
         .args(["rev-parse", "--git-dir"])
