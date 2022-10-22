@@ -2,7 +2,7 @@
 use super::outputs::{Action, AnnexResult};
 use super::*;
 use bytes::Bytes;
-use relative_path::RelativePathBuf;
+use relative_path::{RelativePath, RelativePathBuf};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -29,6 +29,27 @@ pub struct MetadataOutput {
     pub result: AnnexResult,
     #[serde(default)]
     pub note: Option<String>,
+}
+
+impl MetadataOutput {
+    pub(crate) fn file(&self) -> &RelativePath {
+        //(&self.action.file).as_ref().unwrap_or_else(|| RelativePath::from_path("<unknown file>").unwrap())
+        match &self.action.file {
+            Some(f) => f,
+            None => RelativePath::from_path("<unknown file>").unwrap(),
+        }
+    }
+
+    pub(crate) fn check(self) -> Result<Self, AnnexError> {
+        if self.result.success {
+            Ok(self)
+        } else {
+            Err(AnnexError {
+                preamble: format!("{}: setting metadata failed", self.file()),
+                errmsgs: self.result.error_messages,
+            })
+        }
+    }
 }
 
 #[cfg(test)]

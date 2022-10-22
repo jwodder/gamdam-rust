@@ -2,6 +2,7 @@
 use super::outputs::{Action, AnnexResult};
 use super::*;
 use bytes::Bytes;
+use relative_path::RelativePath;
 use serde::Deserialize;
 use url::Url;
 
@@ -24,6 +25,35 @@ pub struct RegisterURLOutput {
     pub action: Action,
     #[serde(flatten)]
     pub result: AnnexResult,
+}
+
+impl RegisterURLOutput {
+    pub(crate) fn file(&self) -> &RelativePath {
+        //self.action.file.unwrap_or_else(|| RelativePath::from_path("<unknown file>").unwrap())
+        match &self.action.file {
+            Some(f) => f,
+            None => RelativePath::from_path("<unknown file>").unwrap(),
+        }
+    }
+
+    pub(crate) fn url(&self) -> &str {
+        //self.action.input.get(1).unwrap_or("<unknown URL>")
+        match self.action.input.get(1) {
+            Some(s) => s,
+            None => "<unknown URL>",
+        }
+    }
+
+    pub(crate) fn check(self) -> Result<Self, AnnexError> {
+        if self.result.success {
+            Ok(self)
+        } else {
+            Err(AnnexError {
+                preamble: format!("{}: registering URL {:?} failed", self.file(), self.url()),
+                errmsgs: self.result.error_messages,
+            })
+        }
+    }
 }
 
 #[cfg(test)]

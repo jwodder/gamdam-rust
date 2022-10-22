@@ -2,7 +2,7 @@
 use super::outputs::{Action, AnnexResult};
 use super::*;
 use bytes::Bytes;
-use relative_path::RelativePathBuf;
+use relative_path::{RelativePath, RelativePathBuf};
 use serde::Deserialize;
 use url::Url;
 
@@ -39,6 +39,40 @@ pub enum AddURLOutput {
         #[serde(default)]
         note: Option<String>,
     },
+}
+
+impl AddURLOutput {
+    pub(crate) fn in_progress(&self) -> bool {
+        matches!(self, AddURLOutput::Progress { .. })
+    }
+
+    pub(crate) fn file(&self) -> &RelativePath {
+        let action = match self {
+            AddURLOutput::Progress { action, .. } => action,
+            AddURLOutput::Completion { action, .. } => action,
+        };
+        //action.file.as_ref().unwrap_or_else(|| RelativePath::from_path("<unknown file>").unwrap())
+        match &action.file {
+            Some(f) => f,
+            None => RelativePath::from_path("<unknown file>").unwrap(),
+        }
+    }
+
+    pub(crate) fn check(self) -> Result<Self, AnnexError> {
+        match self {
+            AddURLOutput::Progress { .. } => Ok(self),
+            AddURLOutput::Completion { ref result, .. } => {
+                if result.success {
+                    Ok(self)
+                } else {
+                    Err(AnnexError {
+                        preamble: format!("{}: download failed", self.file()),
+                        errmsgs: result.error_messages.clone(),
+                    })
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
