@@ -318,13 +318,12 @@ pub async fn ensure_annex_repo<P: AsRef<Path>>(repo: P) -> Result<(), anyhow::Er
         Err(e) => return Err(e.into()),
     };
     log::debug!("Using {} as the repository root", repo.display());
-    let mut path: PathBuf = LoggedCommand::new("git", ["rev-parse", "--git-dir"], &repo)
+    let git_dir: PathBuf = LoggedCommand::new("git", ["rev-parse", "--git-dir"], &repo)
         .check_output()
         .await?
         .trim()
         .into();
-    path.push("annex");
-    if !path.exists() {
+    if !repo.join(git_dir).join("annex").exists() {
         log::info!(
             "Repository at {} is not a git-annex repository; initializing ...",
             repo.display()
