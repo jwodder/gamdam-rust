@@ -1,8 +1,8 @@
 use anyhow::Context;
 use clap::Parser;
 use futures::stream::TryStreamExt;
-use gamdam_rust::util::runcmd;
-use gamdam_rust::{ensure_annex_repo, Downloadable, Gamdam, Jobs};
+use gamdam::util::runcmd;
+use gamdam::{ensure_annex_repo, Downloadable, Gamdam, Jobs};
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
