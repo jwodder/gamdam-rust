@@ -173,7 +173,7 @@ impl Gamdam {
                         key.clone().unwrap_or_else(|| "<none>".into())
                     );
                     downloaded += 1;
-                    let downloadable = in_progress.pop(&file);
+                    let downloadable = in_progress.pop(&file)?;
                     let res = DownloadResult { downloadable, key };
                     // TODO: Do something if send() fails
                     sender.send(res).unwrap();
@@ -181,7 +181,7 @@ impl Gamdam {
                 Err(e) => {
                     log::error!("{file}: download failed:{e}");
                     failed += 1;
-                    let _downloadable = in_progress.pop(&file);
+                    let _downloadable = in_progress.pop(&file)?;
                     /*
                     let res = DownloadResult {
                         downloadable,
@@ -294,11 +294,11 @@ impl InProgress {
         }
     }
 
-    fn pop(&self, file: &RelativePathBuf) -> Downloadable {
+    fn pop(&self, file: &RelativePathBuf) -> Result<Downloadable, anyhow::Error> {
         let mut data = self.data.lock().unwrap();
         match data.remove(file) {
-            Some(dl) => dl,
-            None => panic!("No record for in-progress download {}", file),
+            Some(dl) => Ok(dl),
+            None => anyhow::bail!("No record found for download of {file}"),
         }
     }
 }
