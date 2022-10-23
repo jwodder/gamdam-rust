@@ -202,7 +202,7 @@ impl Gamdam {
             // if !r.success {continue; }
             let path = r.downloadable.path;
             if !r.downloadable.metadata.is_empty() {
-                log::debug!("Setting metadata for {path} ...");
+                log::info!("Setting metadata for {path} ...");
                 let input = MetadataInput {
                     file: path.clone(),
                     fields: r.downloadable.metadata,
