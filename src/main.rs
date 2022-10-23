@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use anyhow::Context;
 use clap::Parser;
-use futures::stream::StreamExt;
+use futures::stream::TryStreamExt;
 use gamdam_rust::Downloadable;
 use std::path::{Path, PathBuf};
 use tokio::fs::File;
@@ -94,11 +94,10 @@ async fn read_input_file<P: AsRef<Path>>(path: P) -> Result<Vec<Downloadable>, a
     tokio::pin!(lines);
     let mut items = Vec::new();
     let mut lineno = 1;
-    // TODO: Use try_next() here:
-    while let Some(ln) = lines.next().await {
-        match serde_json::from_str(&ln.context("Error reading input")?) {
+    while let Some(ln) = lines.try_next().await.context("Error reading input")? {
+        match serde_json::from_str(&ln) {
             Ok(d) => items.push(d),
-            Err(e) => log::error!("Input line {} is invalid; discarding: {}", lineno, e),
+            Err(e) => log::warn!("Input line {} is invalid; discarding: {}", lineno, e),
         }
         lineno += 1;
     }
