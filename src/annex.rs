@@ -164,20 +164,16 @@ impl<I: AnnexInput> Serializer<I> for AnnexCodec {
 }
 
 #[derive(Debug)]
-pub(crate) struct AnnexError {
-    pub(crate) preamble: String,
-    pub(crate) errmsgs: Vec<String>,
-}
+pub(crate) struct AnnexError(Vec<String>);
 
 impl fmt::Display for AnnexError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}:", self.preamble)?;
-        match self.errmsgs.len() {
+        match self.0.len() {
             0 => write!(f, " <no error message>"),
-            1 => write!(f, " {}", self.errmsgs[0]),
+            1 => write!(f, " {}", self.0[0]),
             _ => {
                 write!(f, "\n\n")?;
-                for m in &self.errmsgs {
+                for m in &self.0 {
                     write!(f, "    {}", m)?;
                 }
                 writeln!(f)

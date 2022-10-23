@@ -43,10 +43,7 @@ impl MetadataOutput {
         if self.result.success {
             Ok(self)
         } else {
-            Err(AnnexError {
-                preamble: format!("{}: setting metadata failed", self.file()),
-                errmsgs: self.result.error_messages,
-            })
+            Err(AnnexError(self.result.error_messages))
         }
     }
 }

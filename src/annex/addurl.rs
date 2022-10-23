@@ -64,10 +64,7 @@ impl AddURLOutput {
                 if result.success {
                     Ok(self)
                 } else {
-                    Err(AnnexError {
-                        preamble: format!("{}: download failed", self.file()),
-                        errmsgs: result.error_messages.clone(),
-                    })
+                    Err(AnnexError(result.error_messages.clone()))
                 }
             }
         }

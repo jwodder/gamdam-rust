@@ -31,10 +31,7 @@ impl RegisterURLOutput {
         if self.result.success {
             Ok(self)
         } else {
-            Err(AnnexError {
-                preamble: "Registering URL failed".into(),
-                errmsgs: self.result.error_messages,
-            })
+            Err(AnnexError(self.result.error_messages))
         }
     }
 }
