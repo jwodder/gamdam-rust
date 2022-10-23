@@ -43,8 +43,16 @@ impl<Input, Output> AnnexProcess<Input, Output> {
         S: AsRef<OsStr>,
         P: AsRef<Path>,
     {
-        // TODO: Log full command line
-        debug!("Running `git-annex {name}` command");
+        let args = args
+            .into_iter()
+            .map(|s| s.as_ref().to_os_string())
+            .collect::<Vec<_>>();
+        let cmdstr = format!(
+            "git-annex {} {}",
+            shell_words::quote(name),
+            shell_words::join(args.iter().map(|s| s.to_string_lossy()))
+        );
+        debug!("Opening pipe to: {cmdstr}");
         let mut p = Command::new("git-annex")
             .arg(name)
             .args(args)
@@ -52,7 +60,7 @@ impl<Input, Output> AnnexProcess<Input, Output> {
             .stdout(Stdio::piped())
             .current_dir(repo)
             .spawn()
-            .with_context(|| format!("Error spawning `git-annex {name}`"))?;
+            .with_context(|| format!("Error spawning `{cmdstr}`"))?;
         let stdin = p.stdin.take().expect("Child.stdin was unexpectedly None");
         let stdout = p.stdout.take().expect("Child.stdout was unexpectedly None");
         Ok(AnnexProcess {
