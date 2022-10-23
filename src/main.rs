@@ -1,4 +1,5 @@
 use anyhow::Context;
+use clap::builder::ArgAction;
 use clap::Parser;
 use futures::stream::TryStreamExt;
 use gamdam::cmd::{CommandError, LoggedCommand};
@@ -18,7 +19,7 @@ use tokio_util::codec::{FramedRead, LinesCodec};
 /// paths to `git-annex addurl`, and once each file has finished downloading,
 /// it attaches any listed metadata and extra URLs using `git-annex metadata`
 /// and `git-annex registerurl`, respectively.
-#[derive(Debug, Parser)]
+#[derive(Debug, Parser, PartialEq)]
 #[clap(version)]
 struct Arguments {
     /// Additional options to pass to `git-annex addurl`
@@ -63,17 +64,33 @@ struct Arguments {
     no_save_on_fail: bool,
 
     /// Commit the downloaded files when done  [default]
-    #[clap(long, overrides_with = "_no_save")]
-    save: bool,
+    #[clap(long = "save")]
+    _no_save: bool,
 
     /// Don't commit the downloaded files when done
-    #[clap(long = "no-save")]
-    _no_save: bool,
+    #[clap(long = "no-save", overrides_with = "_no_save", action = ArgAction::SetFalse)]
+    save: bool,
 
     /// File containing JSON lines with "url", "path", "metadata" (optional),
     /// and "extra_urls" (optional) fields  [default: read from stdin]
     #[clap(default_value_os_t = PathBuf::from("-"), hide_default_value = true)]
     infile: PathBuf,
+}
+
+impl Default for Arguments {
+    fn default() -> Arguments {
+        Arguments {
+            addurl_opts: Vec::new(),
+            repo: PathBuf::from("."),
+            jobs: None,
+            log_level: log::LevelFilter::Info,
+            message: "Downloaded {downloaded} URLs".into(),
+            no_save_on_fail: false,
+            save: true,
+            _no_save: false,
+            infile: PathBuf::from("-"),
+        }
+    }
 }
 
 #[tokio::main]
@@ -158,4 +175,39 @@ async fn read_input_file<P: AsRef<Path>>(path: P) -> Result<Vec<Downloadable>, a
         lineno += 1;
     }
     Ok(items)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cli_no_args() {
+        let args = Arguments::try_parse_from(["arg0"]).unwrap();
+        assert_eq!(args, Arguments::default());
+    }
+
+    #[test]
+    fn test_cli_save() {
+        let args = Arguments::try_parse_from(["arg0", "--save"]).unwrap();
+        assert_eq!(
+            args,
+            Arguments {
+                _no_save: true,
+                ..Arguments::default()
+            }
+        );
+    }
+
+    #[test]
+    fn test_cli_no_save() {
+        let args = Arguments::try_parse_from(["arg0", "--no-save"]).unwrap();
+        assert_eq!(
+            args,
+            Arguments {
+                save: false,
+                ..Arguments::default()
+            }
+        );
+    }
 }
