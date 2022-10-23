@@ -267,4 +267,22 @@ mod tests {
             }
         );
     }
+
+    #[test]
+    fn test_cli_jobs() {
+        let args = Arguments::try_parse_from(["arg0", "-J", "42"]).unwrap();
+        assert_eq!(
+            args,
+            Arguments {
+                jobs: NonZeroUsize::new(42),
+                ..Arguments::default()
+            }
+        );
+    }
+
+    #[test]
+    fn test_cli_zero_jobs() {
+        let args = Arguments::try_parse_from(["arg0", "-J", "0"]);
+        assert!(matches!(args, Err(_)))
+    }
 }
