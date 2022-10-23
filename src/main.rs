@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use anyhow::Context;
 use clap::Parser;
 use futures::stream::TryStreamExt;

@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use anyhow::Context;
 use std::ffi::{OsStr, OsString};
 use std::fmt;

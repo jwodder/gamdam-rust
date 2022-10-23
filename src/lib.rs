@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 mod annex;
 mod blc;
 pub mod util;
@@ -151,7 +150,10 @@ impl Gamdam {
             .await
             .context("Error reading from `git-annex addurl`")?
         {
-            let file = r.file().to_relative_path_buf();
+            let file = match r.file() {
+                Some(f) => f.clone(),
+                None => anyhow::bail!("`git-annex addurl` outputted a line without a file"),
+            };
             match r.check() {
                 Ok(AddURLOutput::Progress {
                     byte_progress,

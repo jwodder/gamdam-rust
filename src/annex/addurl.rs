@@ -1,8 +1,7 @@
-#![allow(dead_code)]
 use super::outputs::{Action, AnnexResult};
 use super::*;
 use bytes::Bytes;
-use relative_path::{RelativePath, RelativePathBuf};
+use relative_path::RelativePathBuf;
 use serde::Deserialize;
 use url::Url;
 
@@ -42,19 +41,12 @@ pub enum AddURLOutput {
 }
 
 impl AddURLOutput {
-    pub(crate) fn in_progress(&self) -> bool {
-        matches!(self, AddURLOutput::Progress { .. })
-    }
-
-    pub(crate) fn file(&self) -> &RelativePath {
-        let action = match self {
+    pub(crate) fn file(&self) -> &Option<RelativePathBuf> {
+        &match self {
             AddURLOutput::Progress { action, .. } => action,
             AddURLOutput::Completion { action, .. } => action,
-        };
-        action
-            .file
-            .as_deref()
-            .unwrap_or_else(|| RelativePath::from_path("<unknown file>").unwrap())
+        }
+        .file
     }
 
     pub(crate) fn check(self) -> Result<Self, AnnexError> {

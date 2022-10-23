@@ -1,8 +1,7 @@
-#![allow(dead_code)]
 use super::outputs::{Action, AnnexResult};
 use super::*;
 use bytes::Bytes;
-use relative_path::{RelativePath, RelativePathBuf};
+use relative_path::RelativePathBuf;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -32,13 +31,6 @@ pub struct MetadataOutput {
 }
 
 impl MetadataOutput {
-    pub(crate) fn file(&self) -> &RelativePath {
-        self.action
-            .file
-            .as_deref()
-            .unwrap_or_else(|| RelativePath::from_path("<unknown file>").unwrap())
-    }
-
     pub(crate) fn check(self) -> Result<Self, AnnexError> {
         if self.result.success {
             Ok(self)

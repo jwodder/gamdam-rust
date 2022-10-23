@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use super::outputs::{Action, AnnexResult};
 use super::*;
 use bytes::Bytes;
