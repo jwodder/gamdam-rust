@@ -1,14 +1,13 @@
 use anyhow::Context;
 use clap::Parser;
 use futures::stream::TryStreamExt;
-use gamdam::util::runcmd;
+use gamdam::cmd::{CommandError, LoggedCommand};
 use gamdam::{ensure_annex_repo, Downloadable, Gamdam, Jobs};
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use tokio::fs::File;
 use tokio::io::{stdin, AsyncRead};
-use tokio::process::Command;
 use tokio_util::codec::{FramedRead, LinesCodec};
 
 /// Git-Annex Mass Downloader and Metadata-er
@@ -102,30 +101,31 @@ async fn main() -> Result<ExitCode, anyhow::Error> {
     };
     let report = gamdam.download(items).await?;
     if report.downloaded > 0 && args.save && !(args.no_save_on_fail && report.failed > 0) {
-        log::debug!("Running: git diff --cached --quiet");
-        let diff = Command::new("git")
-            .args(["diff", "--cached", "--quiet"])
-            .current_dir(&args.repo)
+        match LoggedCommand::new("git", ["diff", "--cached", "--quiet"], &args.repo)
             .status()
             .await
-            .context("Error running `git diff --cached --quiet`")?;
-        if !diff.success() {
-            runcmd(
-                [
+        {
+            Err(CommandError::Exit { .. }) => {
+                LoggedCommand::new(
                     "git",
-                    "commit",
-                    "-m",
-                    &args
-                        .message
-                        .replace("{downloaded}", &report.downloaded.to_string()),
-                ],
-                args.repo,
-            )
-            .await?;
-        } else {
-            // This can happen if we only downloaded files that were already
-            // present in the repo.
-            log::info!("Nothing to commit");
+                    [
+                        "commit",
+                        "-m",
+                        &args
+                            .message
+                            .replace("{downloaded}", &report.downloaded.to_string()),
+                    ],
+                    args.repo,
+                )
+                .status()
+                .await?
+            }
+            Ok(()) => {
+                // This can happen if we only downloaded files that were
+                // already present in the repo.
+                log::info!("Nothing to commit");
+            }
+            Err(e) => return Err(e.into()),
         }
     }
     Ok(if report.failed == 0 {

@@ -1,11 +1,11 @@
 mod annex;
 mod blc;
-pub mod util;
+pub mod cmd;
 use crate::annex::addurl::*;
 use crate::annex::metadata::*;
 use crate::annex::registerurl::*;
 use crate::annex::*;
-use crate::util::*;
+use crate::cmd::*;
 use anyhow::Context;
 use futures::sink::SinkExt;
 use futures::stream::TryStreamExt;
@@ -15,12 +15,9 @@ use std::collections::{hash_map::Entry, HashMap};
 use std::fmt;
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
-use std::process::Stdio;
-use std::str::from_utf8;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::fs::create_dir_all;
-use tokio::process::Command;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use url::Url;
 
@@ -308,62 +305,25 @@ pub async fn ensure_annex_repo<P: AsRef<Path>>(repo: P) -> Result<(), anyhow::Er
     create_dir_all(&repo)
         .await
         .with_context(|| format!("Error creating directory {}", repo.display()))?;
-    log::debug!("Running: git rev-parse --show-toplevel");
-    let toplevel = Command::new("git")
-        .args(["rev-parse", "--show-toplevel"])
-        .current_dir(&repo)
-        .stdin(Stdio::inherit())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
-        // Use spawn() + wait_with_output() instead of output() so as not to
-        // capture stderr
-        .spawn()
-        .context("Error running `git rev-parse --show-toplevel`")?
-        .wait_with_output()
-        .await
-        .context("Error getting output from `git rev-parse --show-toplevel`")?;
-    let repo: PathBuf = if toplevel.status.success() {
-        from_utf8(&toplevel.stdout)
-            .with_context(|| {
-                format!(
-                    "Could not decode `git rev-parse --show-toplevel` output: {:?}",
-                    toplevel.stdout
-                )
-            })?
-            .trim()
-            .into()
-    } else {
-        log::info!(
-            "{} is not a Git repository; initializing ...",
-            repo.display()
-        );
-        runcmd(["git", "init"], &repo).await?;
-        repo.into()
+    let toplevel = LoggedCommand::new("git", ["rev-parse", "--show-toplevel"], &repo)
+        .check_output()
+        .await;
+    let repo: PathBuf = match toplevel {
+        Ok(s) => s.trim().into(),
+        Err(CommandOutputError::Exit { .. }) => {
+            log::info!(
+                "{} is not a Git repository; initializing ...",
+                repo.display()
+            );
+            LoggedCommand::new("git", ["init"], &repo).status().await?;
+            repo.into()
+        }
+        Err(e) => return Err(e.into()),
     };
     log::debug!("Using {} as the repository root", repo.display());
-    log::debug!("Running: git rev-parse --git-dir");
-    let git_dir = Command::new("git")
-        .args(["rev-parse", "--git-dir"])
-        .current_dir(&repo)
-        .stdin(Stdio::inherit())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
-        // Use spawn() + wait_with_output() instead of output() so as not to
-        // capture stderr
-        .spawn()
-        .context("Error running `git rev-parse --git-dir`")?
-        .wait_with_output()
-        .await
-        .context("Error getting output from `git rev-parse --git-dir`")?;
-    CommandStatusError::for_status(git_dir.status)
-        .context("Command `git rev-parse --git-dir` failed")?;
-    let mut path: PathBuf = from_utf8(&git_dir.stdout)
-        .with_context(|| {
-            format!(
-                "Could not decode `git rev-parse --git-dir` output: {:?}",
-                git_dir.stdout
-            )
-        })?
+    let mut path: PathBuf = LoggedCommand::new("git", ["rev-parse", "--git-dir"], &repo)
+        .check_output()
+        .await?
         .trim()
         .into();
     path.push("annex");
@@ -372,7 +332,9 @@ pub async fn ensure_annex_repo<P: AsRef<Path>>(repo: P) -> Result<(), anyhow::Er
             "Repository at {} is not a git-annex repository; initializing ...",
             repo.display()
         );
-        runcmd(["git-annex", "init"], &repo).await?;
+        LoggedCommand::new("git-annex", ["init"], &repo)
+            .status()
+            .await?;
     }
     Ok(())
 }
