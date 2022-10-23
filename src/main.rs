@@ -23,7 +23,7 @@ use tokio_util::codec::{FramedRead, LinesCodec};
 #[clap(version)]
 struct Arguments {
     /// Additional options to pass to `git-annex addurl`
-    #[clap(long, value_parser = shell_words::split, value_name = "OPTIONS")]
+    #[clap(long, value_name = "OPTIONS", num_args = 1.., allow_hyphen_values = true, value_terminator = "--")]
     addurl_opts: Vec<String>,
 
     /// git-annex repository to operate in  [default: current directory]
@@ -180,6 +180,12 @@ async fn read_input_file<P: AsRef<Path>>(path: P) -> Result<Vec<Downloadable>, a
 #[cfg(test)]
 mod tests {
     use super::*;
+    use clap::CommandFactory;
+
+    #[test]
+    fn verify_cli() {
+        Arguments::command().debug_assert()
+    }
 
     #[test]
     fn test_cli_no_args() {
@@ -206,6 +212,57 @@ mod tests {
             args,
             Arguments {
                 save: false,
+                ..Arguments::default()
+            }
+        );
+    }
+
+    #[test]
+    fn test_cli_hyphen_infile() {
+        let args = Arguments::try_parse_from(["arg0", "-"]).unwrap();
+        assert_eq!(
+            args,
+            Arguments {
+                infile: "-".into(),
+                ..Arguments::default()
+            }
+        );
+    }
+
+    #[test]
+    fn test_cli_addurl_opts() {
+        let args = Arguments::try_parse_from([
+            "arg0",
+            "--addurl-opts",
+            "--user-agent",
+            "gamdam via git-annex",
+        ])
+        .unwrap();
+        assert_eq!(
+            args,
+            Arguments {
+                addurl_opts: vec!["--user-agent".into(), "gamdam via git-annex".into()],
+                ..Arguments::default()
+            }
+        );
+    }
+
+    #[test]
+    fn test_cli_addurl_opts_infile() {
+        let args = Arguments::try_parse_from([
+            "arg0",
+            "--addurl-opts",
+            "--user-agent",
+            "gamdam via git-annex",
+            "--",
+            "file.json",
+        ])
+        .unwrap();
+        assert_eq!(
+            args,
+            Arguments {
+                addurl_opts: vec!["--user-agent".into(), "gamdam via git-annex".into()],
+                infile: "file.json".into(),
                 ..Arguments::default()
             }
         );
