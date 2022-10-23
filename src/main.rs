@@ -2,10 +2,14 @@
 use anyhow::Context;
 use clap::Parser;
 use futures::stream::TryStreamExt;
-use gamdam_rust::Downloadable;
+use gamdam_rust::util::runcmd;
+use gamdam_rust::{ensure_annex_repo, Downloadable, Gamdam, Jobs};
+use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
+use std::process::ExitCode;
 use tokio::fs::File;
 use tokio::io::{stdin, AsyncRead};
+use tokio::process::Command;
 use tokio_util::codec::{FramedRead, LinesCodec};
 
 /// Git-Annex Mass Downloader and Metadata-er
@@ -27,13 +31,13 @@ struct Arguments {
     #[clap(short = 'C', long = "chdir", value_name = "DIR", default_value_os_t = PathBuf::from("."), hide_default_value = true)]
     repo: PathBuf,
 
-    /// Write failed download items to the given file
-    #[clap(short = 'F', long = "failures", value_name = "FILE")]
-    failures: Option<PathBuf>,
-
+    // TODO
+    // /// Write failed download items to the given file
+    // #[clap(short = 'F', long = "failures", value_name = "FILE")]
+    // failures: Option<PathBuf>,
     /// Number of jobs for `git-annex addurl` to use  [default: one per CPU]
     #[clap(short = 'J', value_name = "INT")]
-    jobs: Option<usize>,
+    jobs: Option<NonZeroUsize>,
 
     /// Set logging level
     #[clap(
@@ -74,9 +78,62 @@ struct Arguments {
     infile: PathBuf,
 }
 
-fn main() {
+#[tokio::main]
+async fn main() -> Result<ExitCode, anyhow::Error> {
     let args = Arguments::parse();
-    println!("{args:?}");
+    fern::Dispatch::new()
+        .format(|out, message, record| {
+            out.finish(format_args!(
+                "{} [{:<5}] {}",
+                chrono::Local::now().format("%H:%M:%S"),
+                record.level(),
+                message
+            ))
+        })
+        .level(args.log_level)
+        .chain(std::io::stderr())
+        .apply()
+        .unwrap();
+    let items = read_input_file(args.infile).await?;
+    ensure_annex_repo(&args.repo).await?;
+    let gamdam = Gamdam {
+        repo: args.repo.clone(),
+        addurl_options: args.addurl_opts,
+        addurl_jobs: args.jobs.map_or(Jobs::CPUs, Jobs::Qty),
+    };
+    let report = gamdam.download(items).await?;
+    if report.downloaded > 0 && args.save && !(args.no_save_on_fail && report.failed > 0) {
+        log::debug!("Running: git diff --cached --quiet");
+        let diff = Command::new("git")
+            .args(["diff", "--cached", "--quiet"])
+            .current_dir(&args.repo)
+            .status()
+            .await
+            .context("Error running `git diff --cached --quiet`")?;
+        if !diff.success() {
+            runcmd(
+                [
+                    "git",
+                    "commit",
+                    "-m",
+                    &args
+                        .message
+                        .replace("{downloaded}", &report.downloaded.to_string()),
+                ],
+                args.repo,
+            )
+            .await?;
+        } else {
+            // This can happen if we only downloaded files that were already
+            // present in the repo.
+            log::info!("Nothing to commit");
+        }
+    }
+    Ok(if report.failed == 0 {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    })
 }
 
 async fn read_input_file<P: AsRef<Path>>(path: P) -> Result<Vec<Downloadable>, anyhow::Error> {
