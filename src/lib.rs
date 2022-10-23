@@ -16,7 +16,6 @@ use std::fmt;
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
 use tokio::fs::create_dir_all;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use url::Url;
@@ -63,52 +62,50 @@ pub struct Gamdam {
 }
 
 impl Gamdam {
-    const ERR_TIMEOUT: Duration = Duration::from_secs(3);
-
     pub async fn download<I>(&self, items: I) -> Result<Report, anyhow::Error>
     where
         I: IntoIterator<Item = Downloadable>,
     {
-        let (sender, receiver) = unbounded_channel();
-        // TODO: If one of these fails, shutdown previously-started processes:
-        let (addurl_stop, mut addurl_sink, mut addurl_stream) = self.addurl().await?.split();
-        let mut metadata = self.metadata().await?;
-        let mut registerurl = self.registerurl().await?;
-        let in_progress = Arc::new(InProgress::new());
-        let r = tokio::try_join!(
-            self.feed_addurl(items, &mut addurl_sink, in_progress.clone()),
-            self.read_addurl(&mut addurl_stream, in_progress, sender),
-            self.add_metadata(receiver, &mut metadata, &mut registerurl),
-        );
-        // TODO: Log errors returned from shutdown()
+        let r = self
+            .addurl()
+            .await?
+            .in_context(|addurl| async {
+                self.metadata()
+                    .await?
+                    .in_context(|metadata| async move {
+                        self.registerurl()
+                            .await?
+                            .in_context(|registerurl| async move {
+                                let in_progress = Arc::new(InProgress::new());
+                                let (sender, receiver) = unbounded_channel();
+                                let (addurl_sink, addurl_stream) = addurl.split();
+                                tokio::try_join!(
+                                    self.feed_addurl(items, addurl_sink, in_progress.clone()),
+                                    self.read_addurl(addurl_stream, in_progress, sender),
+                                    self.add_metadata(receiver, metadata, registerurl),
+                                )
+                            })
+                            .await
+                    })
+                    .await
+            })
+            .await;
         match r {
             Ok((_, report, _)) => {
-                _ = tokio::join!(
-                    addurl_stop.shutdown(None),
-                    metadata.shutdown(None),
-                    registerurl.shutdown(None),
-                );
                 log::info!("Downloaded {} files", report.downloaded);
                 if report.failed > 0 {
                     log::error!("{} files failed to download", report.failed);
                 }
                 Ok(report)
             }
-            Err(e) => {
-                _ = tokio::join!(
-                    addurl_stop.shutdown(Some(Gamdam::ERR_TIMEOUT)),
-                    metadata.shutdown(Some(Gamdam::ERR_TIMEOUT)),
-                    registerurl.shutdown(Some(Gamdam::ERR_TIMEOUT)),
-                );
-                Err(e)
-            }
+            Err(e) => Err(e),
         }
     }
 
     async fn feed_addurl<I>(
         &self,
         items: I,
-        addurl_sink: &mut AnnexSink<AddURLInput>,
+        mut addurl_sink: AnnexSink<AddURLInput>,
         in_progress: Arc<InProgress>,
     ) -> Result<(), anyhow::Error>
     where
@@ -136,7 +133,7 @@ impl Gamdam {
 
     async fn read_addurl(
         &self,
-        addurl_stream: &mut AnnexStream<AddURLOutput>,
+        mut addurl_stream: AnnexStream<AddURLOutput>,
         in_progress: Arc<InProgress>,
         sender: UnboundedSender<DownloadResult>,
     ) -> Result<Report, anyhow::Error> {
@@ -198,8 +195,8 @@ impl Gamdam {
     async fn add_metadata(
         &self,
         mut receiver: UnboundedReceiver<DownloadResult>,
-        metadata: &mut AnnexProcess<MetadataInput, MetadataOutput>,
-        registerurl: &mut AnnexProcess<RegisterURLInput, RegisterURLOutput>,
+        mut metadata: AnnexIO<MetadataInput, MetadataOutput>,
+        mut registerurl: AnnexIO<RegisterURLInput, RegisterURLOutput>,
     ) -> Result<(), anyhow::Error> {
         while let Some(r) = receiver.recv().await {
             // if !r.success {continue; }

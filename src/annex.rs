@@ -10,6 +10,7 @@ use futures::stream::{TryStream, TryStreamExt};
 use serde::Deserialize;
 use std::ffi::OsStr;
 use std::fmt;
+use std::future::Future;
 use std::path::Path;
 use std::pin::Pin;
 use std::process::Stdio;
@@ -33,7 +34,8 @@ pub struct AnnexProcess<Input, Output> {
 }
 
 impl<Input, Output> AnnexProcess<Input, Output> {
-    pub const MAX_INPUT_LEN: usize = 65535;
+    const MAX_INPUT_LEN: usize = 65535;
+    const ERR_TIMEOUT: Duration = Duration::from_secs(3);
 
     pub async fn new<I, S, P>(name: &str, args: I, repo: P) -> Result<Self, anyhow::Error>
     where
@@ -75,47 +77,33 @@ impl<Input, Output> AnnexProcess<Input, Output> {
         })
     }
 
-    pub async fn chat(&mut self, value: Input) -> Result<Output, anyhow::Error>
+    pub async fn in_context<Func, F, T, E>(self, func: Func) -> Result<T, E>
     where
-        Input: AnnexInput,
-        <Input as AnnexInput>::Error: Into<BinaryLinesCodecError>,
-        <StdoutTransport as TryStream>::Error: From<serde_json::Error>,
-        Output: for<'a> Deserialize<'a> + std::marker::Unpin,
+        Func: FnOnce(AnnexIO<Input, Output>) -> F,
+        F: Future<Output = Result<T, E>>,
     {
-        // send() always flushes
-        match self.stdin.send(value).await {
-            Ok(_) => (),
-            Err(e) => {
-                return Err(e)
-                    .with_context(|| format!("Error writing to `git-annex {}`", self.name))
-            }
-        }
-        match self
-            .stdout
-            .try_next()
-            .await
-            .with_context(|| format!("Error reading from `git-annex {}`", self.name))?
-        {
-            Some(r) => Ok(r),
-            None => anyhow::bail!(
-                "`git-annex {}` terminated before providing output",
-                self.name
-            ),
-        }
+        let (terminator, io) = self.split();
+        let r = func(io).await;
+        let timeout = if r.is_ok() {
+            None
+        } else {
+            Some(Self::ERR_TIMEOUT)
+        };
+        _ = terminator.shutdown(timeout).await;
+        r
     }
 
-    pub fn split(self) -> (AnnexTerminator, AnnexSink<Input>, AnnexStream<Output>) {
+    pub fn split(self) -> (AnnexTerminator, AnnexIO<Input, Output>) {
         let terminator = AnnexTerminator {
-            name: self.name,
+            name: self.name.clone(),
             p: self.p,
         };
-        (terminator, self.stdin, self.stdout)
-    }
-
-    pub async fn shutdown(self, timeout: Option<Duration>) -> Result<(), anyhow::Error> {
-        // This drops stdin & stdout:
-        let (terminator, _, _) = self.split();
-        terminator.shutdown(timeout).await
+        let io = AnnexIO {
+            name: self.name,
+            stdin: self.stdin,
+            stdout: self.stdout,
+        };
+        (terminator, io)
     }
 }
 
@@ -126,6 +114,7 @@ pub struct AnnexTerminator {
 
 impl AnnexTerminator {
     pub async fn shutdown(mut self, timeout: Option<Duration>) -> Result<(), anyhow::Error> {
+        // TODO: Log instead of returning errors
         log::debug!("Waiting for `git-annex {}` to terminate", self.name);
         let rc = match timeout {
             None => self.p.wait().await,
@@ -156,6 +145,47 @@ impl AnnexTerminator {
             }
         }
         Ok(())
+    }
+}
+
+pub struct AnnexIO<Input, Output> {
+    name: String,
+    stdin: AnnexSink<Input>,
+    stdout: AnnexStream<Output>,
+}
+
+impl<Input, Output> AnnexIO<Input, Output> {
+    pub fn split(self) -> (AnnexSink<Input>, AnnexStream<Output>) {
+        (self.stdin, self.stdout)
+    }
+
+    pub async fn chat(&mut self, value: Input) -> Result<Output, anyhow::Error>
+    where
+        Input: AnnexInput,
+        <Input as AnnexInput>::Error: Into<BinaryLinesCodecError>,
+        <StdoutTransport as TryStream>::Error: From<serde_json::Error>,
+        Output: for<'a> Deserialize<'a> + std::marker::Unpin,
+    {
+        // send() always flushes
+        match self.stdin.send(value).await {
+            Ok(_) => (),
+            Err(e) => {
+                return Err(e)
+                    .with_context(|| format!("Error writing to `git-annex {}`", self.name))
+            }
+        }
+        match self
+            .stdout
+            .try_next()
+            .await
+            .with_context(|| format!("Error reading from `git-annex {}`", self.name))?
+        {
+            Some(r) => Ok(r),
+            None => anyhow::bail!(
+                "`git-annex {}` terminated before providing output",
+                self.name
+            ),
+        }
     }
 }
 
