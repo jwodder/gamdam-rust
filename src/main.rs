@@ -23,7 +23,7 @@ use tokio_util::codec::{FramedRead, LinesCodec};
 #[clap(version)]
 struct Arguments {
     /// Additional options to pass to `git-annex addurl`
-    #[clap(long, value_name = "OPTIONS", num_args = 1.., allow_hyphen_values = true, value_terminator = "--")]
+    #[clap(long, value_name = "OPTIONS", num_args = 1.., allow_hyphen_values = true, value_terminator = "--", action = ArgAction::Set)]
     addurl_opts: Vec<String>,
 
     /// git-annex repository to operate in  [default: current directory]
@@ -266,6 +266,21 @@ mod tests {
                 ..Arguments::default()
             }
         );
+    }
+
+    #[test]
+    fn test_cli_multi_addurl_opts() {
+        let args = Arguments::try_parse_from([
+            "arg0",
+            "--addurl-opts",
+            "--user-agent",
+            "gamdam via git-annex",
+            "--",
+            "--addurl-opts",
+            "-c",
+            "annex.alwayscompact=false",
+        ]);
+        assert!(matches!(args, Err(_)))
     }
 
     #[test]
