@@ -15,7 +15,8 @@ use std::collections::{hash_map::Entry, HashMap};
 use std::fmt;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
+use std::time::Duration;
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use url::Url;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
@@ -32,6 +33,11 @@ pub struct Downloadable {
 struct DownloadResult {
     downloadable: Downloadable,
     key: Option<String>,
+}
+
+pub struct Report {
+    downloaded: usize,
+    failed: usize,
 }
 
 pub enum Jobs {
@@ -55,7 +61,49 @@ pub struct Gamdam {
 }
 
 impl Gamdam {
-    async fn feed_addurl<I, S>(
+    const ERR_TIMEOUT: Duration = Duration::from_secs(3);
+
+    pub async fn download<I>(&self, items: I) -> Result<Report, anyhow::Error>
+    where
+        I: IntoIterator<Item = Downloadable>,
+    {
+        let (sender, receiver) = unbounded_channel();
+        // TODO: If one of these fails, shutdown previously-started processes:
+        let (addurl_stop, mut addurl_sink, mut addurl_stream) = self.addurl().await?.split();
+        let mut metadata = self.metadata().await?;
+        let mut registerurl = self.registerurl().await?;
+        let in_progress = Arc::new(InProgress::new());
+        let r = tokio::try_join!(
+            self.feed_addurl(items, &mut addurl_sink, in_progress.clone()),
+            self.read_addurl(&mut addurl_stream, in_progress, sender),
+            self.add_metadata(receiver, &mut metadata, &mut registerurl),
+        );
+        // TODO: Log errors returned from shutdown()
+        match r {
+            Ok((_, report, _)) => {
+                _ = tokio::join!(
+                    addurl_stop.shutdown(None),
+                    metadata.shutdown(None),
+                    registerurl.shutdown(None),
+                );
+                log::info!("Downloaded {} files", report.downloaded);
+                if report.failed > 0 {
+                    log::error!("{} files failed to download", report.failed);
+                }
+                Ok(report)
+            }
+            Err(e) => {
+                _ = tokio::join!(
+                    addurl_stop.shutdown(Some(Gamdam::ERR_TIMEOUT)),
+                    metadata.shutdown(Some(Gamdam::ERR_TIMEOUT)),
+                    registerurl.shutdown(Some(Gamdam::ERR_TIMEOUT)),
+                );
+                Err(e)
+            }
+        }
+    }
+
+    async fn feed_addurl<I>(
         &self,
         items: I,
         addurl_sink: &mut AnnexSink<AddURLInput>,
@@ -143,7 +191,7 @@ impl Gamdam {
     }
 
     async fn add_metadata(
-        self,
+        &self,
         mut receiver: UnboundedReceiver<DownloadResult>,
         metadata: &mut AnnexProcess<MetadataInput, MetadataOutput>,
         registerurl: &mut AnnexProcess<RegisterURLInput, RegisterURLOutput>,
@@ -214,11 +262,6 @@ impl Gamdam {
         )
         .await
     }
-}
-
-struct Report {
-    downloaded: usize,
-    failed: usize,
 }
 
 struct InProgress {

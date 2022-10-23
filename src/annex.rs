@@ -8,7 +8,6 @@ use anyhow::Context;
 use bytes::Bytes;
 use futures::sink::SinkExt;
 use futures::stream::{TryStream, TryStreamExt};
-use log::{debug, warn};
 use serde::Deserialize;
 use std::ffi::OsStr;
 use std::fmt;
@@ -52,7 +51,7 @@ impl<Input, Output> AnnexProcess<Input, Output> {
             shell_words::quote(name),
             shell_words::join(args.iter().map(|s| s.to_string_lossy()))
         );
-        debug!("Opening pipe to: {cmdstr}");
+        log::debug!("Opening pipe to: {cmdstr}");
         let mut p = Command::new("git-annex")
             .arg(name)
             .args(args)
@@ -128,12 +127,12 @@ pub struct AnnexTerminator {
 
 impl AnnexTerminator {
     pub async fn shutdown(mut self, timeout: Option<Duration>) -> Result<(), anyhow::Error> {
-        debug!("Waiting for `git-annex {}` to terminate", self.name);
+        log::debug!("Waiting for `git-annex {}` to terminate", self.name);
         let rc = match timeout {
             None => self.p.wait().await,
             Some(delta) => match time::timeout(delta, self.p.wait()).await {
                 Err(_) => {
-                    warn!(
+                    log::warn!(
                         "`git-annex {}` did not terminate in time; killing",
                         self.name
                     );
@@ -149,11 +148,12 @@ impl AnnexTerminator {
         .with_context(|| format!("Error waiting for `git-annex {}` to terminate", self.name))?;
         if !rc.success() {
             match rc.code() {
-                Some(r) => warn!(
+                Some(r) => log::warn!(
                     "`git-annex {}` command exited with return code {}",
-                    self.name, r
+                    self.name,
+                    r
                 ),
-                None => warn!("`git-annex {}` command was killed by a signal", self.name),
+                None => log::warn!("`git-annex {}` command was killed by a signal", self.name),
             }
         }
         Ok(())
