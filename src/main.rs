@@ -23,10 +23,16 @@ use tokio_util::codec::{FramedRead, LinesCodec};
 #[clap(version)]
 struct Arguments {
     /// Additional options to pass to `git-annex addurl`
+    ///
+    /// Supply multiple options as multiple arguments, the same way you'd pass
+    /// them to git-annex.  Terminate the list of options with `--`.
     #[clap(long, value_name = "OPTIONS", num_args = 1.., allow_hyphen_values = true, value_terminator = "--", action = ArgAction::Set)]
     addurl_opts: Vec<String>,
 
     /// git-annex repository to operate in  [default: current directory]
+    ///
+    /// If the given directory does not exist, it is created.  If it is not
+    /// already inside a Git or git-annex repository, one is initialized.
     #[clap(short = 'C', long = "chdir", value_name = "DIR", default_value_os_t = PathBuf::from("."), hide_default_value = true)]
     repo: PathBuf,
 
