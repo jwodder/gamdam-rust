@@ -7,7 +7,7 @@ use crate::blc::{BinaryLinesCodec, BinaryLinesCodecError};
 use anyhow::Context;
 use bytes::Bytes;
 use futures::sink::SinkExt;
-use futures::stream::{StreamExt, TryStream};
+use futures::stream::{TryStream, TryStreamExt};
 use log::{debug, warn};
 use serde::Deserialize;
 use std::ffi::OsStr;
@@ -22,10 +22,10 @@ use tokio_serde::formats::Json;
 use tokio_serde::{Framed, Serializer};
 use tokio_util::codec::{FramedRead, FramedWrite};
 
-type StdinTransport = FramedWrite<ChildStdin, BinaryLinesCodec>;
-type StdoutTransport = FramedRead<ChildStdout, BinaryLinesCodec>;
-type AnnexSink<Input> = Framed<StdinTransport, (), Input, AnnexCodec>;
-type AnnexStream<Output> = Framed<StdoutTransport, Output, (), Json<Output, ()>>;
+pub(crate) type StdinTransport = FramedWrite<ChildStdin, BinaryLinesCodec>;
+pub(crate) type StdoutTransport = FramedRead<ChildStdout, BinaryLinesCodec>;
+pub(crate) type AnnexSink<Input> = Framed<StdinTransport, (), Input, AnnexCodec>;
+pub(crate) type AnnexStream<Output> = Framed<StdoutTransport, Output, (), Json<Output, ()>>;
 
 pub struct AnnexProcess<Input, Output> {
     name: String,
@@ -69,7 +69,7 @@ impl<Input, Output> AnnexProcess<Input, Output> {
         })
     }
 
-    async fn chat(&mut self, value: Input) -> Option<Result<Output, anyhow::Error>>
+    pub async fn chat(&mut self, value: Input) -> Result<Output, anyhow::Error>
     where
         Input: AnnexInput,
         <Input as AnnexInput>::Error: Into<BinaryLinesCodecError>,
@@ -80,17 +80,22 @@ impl<Input, Output> AnnexProcess<Input, Output> {
         match self.stdin.send(value).await {
             Ok(_) => (),
             Err(e) => {
-                return Some(
-                    Err(e).with_context(|| format!("Error writing to `git-annex {}`", self.name)),
-                )
+                return Err(e)
+                    .with_context(|| format!("Error writing to `git-annex {}`", self.name))
             }
         }
-        // TODO: Error if next() returns None
-        // TODO: Use futures::stream::TryStreamExt's try_next()
-        self.stdout
-            .next()
+        match self
+            .stdout
+            .try_next()
             .await
-            .map(|r| r.with_context(|| format!("Error reading from `git-annex {}`", self.name)))
+            .with_context(|| format!("Error reading from `git-annex {}`", self.name))?
+        {
+            Some(r) => Ok(r),
+            None => anyhow::bail!(
+                "`git-annex {}` terminated before providing output",
+                self.name
+            ),
+        }
     }
 
     pub fn split(self) -> (AnnexTerminator, AnnexSink<Input>, AnnexStream<Output>) {

@@ -94,6 +94,7 @@ async fn read_input_file<P: AsRef<Path>>(path: P) -> Result<Vec<Downloadable>, a
     tokio::pin!(lines);
     let mut items = Vec::new();
     let mut lineno = 1;
+    // TODO: Use try_next() here:
     while let Some(ln) = lines.next().await {
         match serde_json::from_str(&ln.context("Error reading input")?) {
             Ok(d) => items.push(d),
