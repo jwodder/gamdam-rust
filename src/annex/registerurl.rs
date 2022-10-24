@@ -4,9 +4,9 @@ use bytes::Bytes;
 use serde::Deserialize;
 use url::Url;
 
-pub struct RegisterURLInput {
-    pub key: String,
-    pub url: Url,
+pub(crate) struct RegisterURLInput {
+    pub(crate) key: String,
+    pub(crate) url: Url,
 }
 
 impl AnnexInput for RegisterURLInput {
@@ -18,11 +18,11 @@ impl AnnexInput for RegisterURLInput {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
-pub struct RegisterURLOutput {
+pub(crate) struct RegisterURLOutput {
     #[serde(flatten)]
-    pub action: Action,
+    pub(crate) action: Action,
     #[serde(flatten)]
-    pub result: AnnexResult,
+    pub(crate) result: AnnexResult,
 }
 
 impl RegisterURLOutput {

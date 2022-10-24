@@ -30,17 +30,19 @@ pub struct Downloadable {
     pub extra_urls: Vec<Url>,
 }
 
-#[derive(Debug)]
-struct DownloadResult {
-    downloadable: Downloadable,
-    key: Option<String>,
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DownloadResult {
+    pub downloadable: Downloadable,
+    pub key: Option<String>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Report {
     pub downloaded: usize,
     pub failed: usize,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Jobs {
     CPUs,
     Qty(NonZeroUsize),
@@ -55,6 +57,7 @@ impl fmt::Display for Jobs {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Gamdam {
     pub repo: PathBuf,
     pub addurl_options: Vec<String>,

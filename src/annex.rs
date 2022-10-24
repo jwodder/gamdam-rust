@@ -34,7 +34,7 @@ pub(crate) type StdoutTransport = FramedRead<ChildStdout, BinaryLinesCodec>;
 pub(crate) type AnnexSink<Input> = Framed<StdinTransport, (), Input, AnnexCodec>;
 pub(crate) type AnnexStream<Output> = Framed<StdoutTransport, Output, (), Json<Output, ()>>;
 
-pub struct AnnexProcess<Input, Output> {
+pub(crate) struct AnnexProcess<Input, Output> {
     name: String,
     p: Child,
     stdin: AnnexSink<Input>,
@@ -45,7 +45,7 @@ impl<Input, Output> AnnexProcess<Input, Output> {
     const MAX_INPUT_LEN: usize = 65535;
     const ERR_TIMEOUT: Duration = Duration::from_secs(3);
 
-    pub async fn new<I, S, P>(name: &str, args: I, repo: P) -> Result<Self, anyhow::Error>
+    pub(crate) async fn new<I, S, P>(name: &str, args: I, repo: P) -> Result<Self, anyhow::Error>
     where
         I: IntoIterator<Item = S>,
         S: AsRef<OsStr>,
@@ -85,7 +85,7 @@ impl<Input, Output> AnnexProcess<Input, Output> {
         })
     }
 
-    pub async fn in_context<Func, F, T, E>(self, func: Func) -> Result<T, E>
+    pub(crate) async fn in_context<Func, F, T, E>(self, func: Func) -> Result<T, E>
     where
         Func: FnOnce(AnnexIO<Input, Output>) -> F,
         F: Future<Output = Result<T, E>>,
@@ -100,7 +100,7 @@ impl<Input, Output> AnnexProcess<Input, Output> {
         r
     }
 
-    pub fn split(self) -> (AnnexTerminator, AnnexIO<Input, Output>) {
+    pub(crate) fn split(self) -> (AnnexTerminator, AnnexIO<Input, Output>) {
         let terminator = AnnexTerminator {
             name: self.name.clone(),
             p: self.p,
@@ -114,13 +114,13 @@ impl<Input, Output> AnnexProcess<Input, Output> {
     }
 }
 
-pub struct AnnexTerminator {
+pub(crate) struct AnnexTerminator {
     name: String,
     p: Child,
 }
 
 impl AnnexTerminator {
-    pub async fn wait(&mut self, timeout: Option<Duration>) {
+    pub(crate) async fn wait(&mut self, timeout: Option<Duration>) {
         log::debug!("Waiting for `git-annex {}` command to exit", self.name);
         let rc = match timeout {
             None => self.p.wait().await,
@@ -153,7 +153,7 @@ impl AnnexTerminator {
         }
     }
 
-    pub async fn terminate(&mut self, timeout: Option<Duration>) {
+    pub(crate) async fn terminate(&mut self, timeout: Option<Duration>) {
         cfg_if! {
             if #[cfg(unix)] {
                 log::debug!("Forcibly terminating `git-annex {}` command", self.name);
@@ -177,18 +177,18 @@ impl AnnexTerminator {
     }
 }
 
-pub struct AnnexIO<Input, Output> {
+pub(crate) struct AnnexIO<Input, Output> {
     name: String,
     stdin: AnnexSink<Input>,
     stdout: AnnexStream<Output>,
 }
 
 impl<Input, Output> AnnexIO<Input, Output> {
-    pub fn split(self) -> (AnnexSink<Input>, AnnexStream<Output>) {
+    pub(crate) fn split(self) -> (AnnexSink<Input>, AnnexStream<Output>) {
         (self.stdin, self.stdout)
     }
 
-    pub async fn chat(&mut self, value: Input) -> Result<Output, anyhow::Error>
+    pub(crate) async fn chat(&mut self, value: Input) -> Result<Output, anyhow::Error>
     where
         Input: AnnexInput,
         <Input as AnnexInput>::Error: Into<BinaryLinesCodecError>,
@@ -218,13 +218,13 @@ impl<Input, Output> AnnexIO<Input, Output> {
     }
 }
 
-pub trait AnnexInput {
+pub(crate) trait AnnexInput {
     type Error;
 
     fn for_input(&self) -> Result<Bytes, Self::Error>;
 }
 
-pub struct AnnexCodec;
+pub(crate) struct AnnexCodec;
 
 impl<I: AnnexInput> Serializer<I> for AnnexCodec {
     type Error = I::Error;

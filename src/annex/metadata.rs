@@ -6,9 +6,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Clone, Debug, Serialize, Eq, PartialEq)]
-pub struct MetadataInput {
-    pub file: RelativePathBuf,
-    pub fields: HashMap<String, Vec<String>>,
+pub(crate) struct MetadataInput {
+    pub(crate) file: RelativePathBuf,
+    pub(crate) fields: HashMap<String, Vec<String>>,
 }
 
 impl AnnexInput for MetadataInput {
@@ -20,14 +20,14 @@ impl AnnexInput for MetadataInput {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
-pub struct MetadataOutput {
-    pub fields: HashMap<String, Vec<String>>,
+pub(crate) struct MetadataOutput {
+    pub(crate) fields: HashMap<String, Vec<String>>,
     #[serde(flatten)]
-    pub action: Action,
+    pub(crate) action: Action,
     #[serde(flatten)]
-    pub result: AnnexResult,
+    pub(crate) result: AnnexResult,
     #[serde(default)]
-    pub note: Option<String>,
+    pub(crate) note: Option<String>,
 }
 
 impl MetadataOutput {

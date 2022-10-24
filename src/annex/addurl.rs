@@ -5,9 +5,9 @@ use relative_path::RelativePathBuf;
 use serde::Deserialize;
 use url::Url;
 
-pub struct AddURLInput {
-    pub url: Url,
-    pub path: RelativePathBuf,
+pub(crate) struct AddURLInput {
+    pub(crate) url: Url,
+    pub(crate) path: RelativePathBuf,
 }
 
 impl AnnexInput for AddURLInput {
@@ -20,7 +20,7 @@ impl AnnexInput for AddURLInput {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 #[serde(untagged)]
-pub enum AddURLOutput {
+pub(crate) enum AddURLOutput {
     #[serde(rename_all = "kebab-case")]
     Progress {
         byte_progress: usize,
