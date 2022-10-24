@@ -59,7 +59,7 @@ jobs:
       - name: Install git-annex
         run: |
           python3 -m pip install --upgrade datalad-installer
-          datalad-installer -l DEBUG --sudo ok ${{ matrix.install-cmd }}
+          datalad-installer -l DEBUG --sudo ok ${{ matrix.annex-install-cmd }}
 
       - name: Build crate
         run: cargo build --verbose
