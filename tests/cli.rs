@@ -90,7 +90,9 @@ impl Annex {
             .whereis
         {
             if loc.description == "web" {
-                return loc.urls;
+                let mut urls = loc.urls;
+                urls.sort();
+                return urls;
             }
         }
         Vec::new()
@@ -149,6 +151,7 @@ fn test_gamdam_successful() {
         for u in dl.extra_urls {
             expected_urls.push(u.to_string())
         }
+        expected_urls.sort();
         assert_eq!(annex.get_urls(&dl.path), expected_urls);
     }
 }
