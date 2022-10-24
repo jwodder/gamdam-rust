@@ -153,9 +153,9 @@ impl Decoder for BinaryLinesCodec {
                     let newline_index = offset + self.next_index;
                     self.next_index = 0;
                     let line = buf.split_to(newline_index + 1);
+                    log::trace!("Read: {line:?}");
                     let line = &line[..line.len() - 1];
                     let line = without_carriage_return(line);
-                    log::trace!("Read: {line:?}");
                     return Ok(Some(BytesMut::from(line)));
                 }
                 (false, None) if buf.len() > self.max_length => {
@@ -187,9 +187,9 @@ impl Decoder for BinaryLinesCodec {
                     None
                 } else {
                     let line = buf.split_to(buf.len());
+                    log::trace!("Read: {line:?}");
                     let line = without_carriage_return(&line);
                     self.next_index = 0;
-                    log::trace!("Read: {line:?}");
                     Some(BytesMut::from(line))
                 }
             }
