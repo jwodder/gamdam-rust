@@ -1,5 +1,6 @@
 use gamdam::Downloadable;
 use relative_path::RelativePathBuf;
+use rstest::rstest;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs::read_to_string;
@@ -111,17 +112,20 @@ impl Drop for Annex {
     }
 }
 
-#[test]
-fn test_gamdam_successful() {
+#[rstest]
+#[case("simple.jsonl")]
+#[case("metadata.jsonl")]
+#[case("extra-urls.jsonl")]
+#[case("successful.jsonl")]
+fn test_gamdam_successful(#[case] infile: &str) {
     let tmpdir = tempdir().unwrap();
     let tmp_path = tmpdir.path();
-    let infile = Path::new(DATA_DIR).join("successful.jsonl");
-    let items = serde_json::Deserializer::from_str(
-        &read_to_string(&infile).expect("Error reading successful.jsonl"),
-    )
-    .into_iter::<Downloadable>()
-    .collect::<Result<Vec<_>, _>>()
-    .expect("Error parsing successful.jsonl");
+    let infile = Path::new(DATA_DIR).join(infile);
+    let items =
+        serde_json::Deserializer::from_str(&read_to_string(&infile).expect("Error reading infile"))
+            .into_iter::<Downloadable>()
+            .collect::<Result<Vec<_>, _>>()
+            .expect("Error parsing infile");
     let r = Command::new("git")
         .args(["init"])
         .current_dir(tmp_path)
