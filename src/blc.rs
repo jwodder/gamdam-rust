@@ -155,6 +155,7 @@ impl Decoder for BinaryLinesCodec {
                     let line = buf.split_to(newline_index + 1);
                     let line = &line[..line.len() - 1];
                     let line = without_carriage_return(line);
+                    log::trace!("Read: {line:?}");
                     return Ok(Some(BytesMut::from(line)));
                 }
                 (false, None) if buf.len() > self.max_length => {
@@ -188,6 +189,7 @@ impl Decoder for BinaryLinesCodec {
                     let line = buf.split_to(buf.len());
                     let line = without_carriage_return(&line);
                     self.next_index = 0;
+                    log::trace!("Read: {line:?}");
                     Some(BytesMut::from(line))
                 }
             }
@@ -199,6 +201,7 @@ impl Encoder<Bytes> for BinaryLinesCodec {
     type Error = BinaryLinesCodecError;
 
     fn encode(&mut self, line: Bytes, buf: &mut BytesMut) -> Result<(), BinaryLinesCodecError> {
+        log::trace!("Writing: {line:?}");
         buf.reserve(line.len() + 1);
         buf.put(line);
         buf.put_u8(b'\n');

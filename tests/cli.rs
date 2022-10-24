@@ -142,7 +142,7 @@ fn test_gamdam_successful(#[case] infile: &str) {
     let r = Command::new(env!("CARGO_BIN_EXE_gamdam"))
         .args([
             "--log-level".as_ref(),
-            "DEBUG".as_ref(),
+            "TRACE".as_ref(),
             "-C".as_ref(),
             tmp_path,
             infile.as_ref(),
