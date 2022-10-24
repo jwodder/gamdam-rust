@@ -32,6 +32,12 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v3
 
+      - name: Configure Git identity
+        # Needed for a couple tests
+        run: |
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email 'ghactions@nil.nil'
+
       - name: Install Rust
         if: matrix.toolchain != 'minimal'
         uses: actions-rs/toolchain@v1
@@ -74,6 +80,12 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v3
+
+      - name: Configure Git identity
+        # Needed for a couple tests
+        run: |
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email 'ghactions@nil.nil'
 
       - name: Install Rust
         uses: actions-rs/toolchain@v1
