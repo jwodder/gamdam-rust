@@ -140,7 +140,13 @@ fn test_gamdam_successful(#[case] infile: &str) {
     assert!(r.success());
     let annex = Annex::new(tmp_path);
     let r = Command::new(env!("CARGO_BIN_EXE_gamdam"))
-        .args(["-C".as_ref(), tmp_path, infile.as_ref()])
+        .args([
+            "--log-level".as_ref(),
+            "DEBUG".as_ref(),
+            "-C".as_ref(),
+            tmp_path,
+            infile.as_ref(),
+        ])
         .status()
         .expect("Failed to execute gamdam");
     assert!(r.success());
