@@ -19,15 +19,12 @@ jobs:
           - stable
           - beta
           - nightly
-        annex-install-cmd:
-          - "neurodebian git-annex -m neurodebian"
         include:
           - os: macos-latest
             toolchain: stable
-            annex-install-cmd: "git-annex -m brew"
-          - os: windows-latest
-            toolchain: stable
-            annex-install-cmd: "git-annex -m datalad/git-annex:release"
+          # Broken due to <https://git-annex.branchable.com/bugs/addurl_+_metadata_on_Windows_doesn__39__t_work/>
+          #- os: windows-latest
+          #  toolchain: stable
     steps:
       - name: Check out repository
         uses: actions/checkout@v3
@@ -62,10 +59,23 @@ jobs:
       - name: Activate cache
         uses: Swatinem/rust-cache@v2
 
-      - name: Install git-annex
+      - name: Install git-annex (Ubuntu)
+        if: startsWith(matrix.os, 'ubuntu')
         run: |
           python3 -m pip install --upgrade datalad-installer
-          datalad-installer -l DEBUG --sudo ok ${{ matrix.annex-install-cmd }}
+          datalad-installer -l DEBUG --sudo ok neurodebian git-annex -m neurodebian
+
+      - name: Install git-annex (macOS)
+        if: startsWith(matrix.os, 'macos')
+        run: |
+          python3 -m pip install --upgrade datalad-installer
+          datalad-installer -l DEBUG --sudo ok git-annex -m brew
+
+      - name: Install git-annex (Windows)
+        if: startsWith(matrix.os, 'windows')
+        run: |
+          python3 -m pip install --upgrade datalad-installer
+          datalad-installer -l DEBUG --sudo ok git-annex -m datalad/git-annex:release
 
       - name: Build crate
         run: cargo build --verbose
