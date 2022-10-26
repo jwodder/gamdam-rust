@@ -203,6 +203,7 @@ fn test_gamdam_failures() {
             serde_json::to_writer(&stdin, &it.item).expect("Error writing input to gamdam");
             stdin.write_all(b"\n").unwrap();
         }
+        stdin.flush().unwrap();
     }
     let r = p.wait().expect("Error waiting for gamdam");
     assert!(!r.success());
