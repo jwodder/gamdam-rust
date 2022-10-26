@@ -4,8 +4,9 @@ use rstest::rstest;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs::read_to_string;
+use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use tempfile::tempdir;
 
 static DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/data");
@@ -164,4 +165,73 @@ fn test_gamdam_successful(#[case] infile: &str) {
         expected_urls.sort();
         assert_eq!(annex.get_urls(&dl.path), expected_urls);
     }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+struct AugmentedInput {
+    item: Downloadable,
+    success: bool,
+}
+
+#[test]
+fn test_gamdam_failures() {
+    let tmpdir = tempdir().unwrap();
+    let tmp_path = tmpdir.path();
+    let repo = tmp_path.join("repo");
+    let infile = Path::new(DATA_DIR).join("mixed-meta.jsonl");
+    let items =
+        serde_json::Deserializer::from_str(&read_to_string(infile).expect("Error reading infile"))
+            .into_iter::<AugmentedInput>()
+            .collect::<Result<Vec<_>, _>>()
+            .expect("Error parsing infile");
+    let mut p = Command::new(env!("CARGO_BIN_EXE_gamdam"))
+        .args([
+            "--log-level".as_ref(),
+            "DEBUG".as_ref(),
+            "-C".as_ref(),
+            repo.as_path(),
+            "--failures".as_ref(),
+            tmp_path.join("failures.jsonl").as_path(),
+            "--no-save-on-fail".as_ref(),
+        ])
+        .stdin(Stdio::piped())
+        .spawn()
+        .expect("Failed to execute gamdam");
+    {
+        let mut stdin = p.stdin.take().expect("Child.stdin was unexpectedly None");
+        for it in &items {
+            serde_json::to_writer(&stdin, &it.item).expect("Error writing input to gamdam");
+            _ = stdin.write(b"\n").unwrap();
+        }
+    }
+    let r = p.wait().expect("Error waiting for gamdam");
+    assert!(!r.success());
+    let annex = Annex::new(repo.clone());
+    assert!(!annex.is_clean());
+    let mut expected_failures = Vec::new();
+    for it in items {
+        let dl = it.item;
+        if it.success {
+            assert!(repo.join(dl.path.as_str()).exists());
+            let md = annex.get_metadata(&dl.path);
+            for (k, v) in dl.metadata {
+                assert_eq!(md.get(&k), Some(&v));
+            }
+            let mut expected_urls = vec![dl.url.to_string()];
+            for u in dl.extra_urls {
+                expected_urls.push(u.to_string())
+            }
+            expected_urls.sort();
+            assert_eq!(annex.get_urls(&dl.path), expected_urls);
+        } else {
+            assert!(!repo.join(dl.path.as_str()).exists());
+            expected_failures.push(serde_json::to_string(&dl).unwrap());
+        }
+    }
+    expected_failures.sort();
+    let failfile =
+        read_to_string(tmp_path.join("failures.jsonl")).expect("Error reading failures.jsonl");
+    let mut recorded_failures = failfile.lines().collect::<Vec<_>>();
+    recorded_failures.sort();
+    assert_eq!(expected_failures, recorded_failures);
 }
