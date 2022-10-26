@@ -246,6 +246,9 @@ impl fmt::Display for AnnexError {
                 write!(f, "\n\n")?;
                 for m in &self.0 {
                     write!(f, "    {}", m)?;
+                    if !m.ends_with('\n') {
+                        writeln!(f)?;
+                    }
                 }
                 writeln!(f)
             }
