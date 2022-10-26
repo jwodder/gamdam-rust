@@ -203,19 +203,19 @@ impl Gamdam {
     ) -> Result<(), anyhow::Error> {
         while let Some(r) = receiver.recv().await {
             // if !r.success {continue; }
-            let path = r.downloadable.path;
-            if !r.downloadable.metadata.is_empty() {
-                log::info!("Setting metadata for {path} ...");
-                let input = MetadataInput {
-                    file: path.clone(),
-                    fields: r.downloadable.metadata,
-                };
-                match metadata.chat(input).await?.check() {
-                    Ok(_) => log::info!("Set metadata on {}", path),
-                    Err(e) => log::error!("{path}: setting metadata failed:{e}"),
-                }
-            }
             if let Some(key) = r.key {
+                let path = r.downloadable.path;
+                if !r.downloadable.metadata.is_empty() {
+                    log::info!("Setting metadata for {path} ...");
+                    let input = MetadataInput {
+                        key: key.clone(),
+                        fields: r.downloadable.metadata,
+                    };
+                    match metadata.chat(input).await?.check() {
+                        Ok(_) => log::info!("Set metadata on {path}"),
+                        Err(e) => log::error!("{path}: setting metadata failed:{e}"),
+                    }
+                }
                 for u in r.downloadable.extra_urls {
                     log::info!("Registering URL {u} for {path} ...");
                     let input = RegisterURLInput {

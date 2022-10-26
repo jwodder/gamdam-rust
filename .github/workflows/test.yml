@@ -22,9 +22,8 @@ jobs:
         include:
           - os: macos-latest
             toolchain: stable
-          # Broken due to <https://git-annex.branchable.com/bugs/addurl_+_metadata_on_Windows_doesn__39__t_work/>
-          #- os: windows-latest
-          #  toolchain: stable
+          - os: windows-latest
+            toolchain: stable
     steps:
       - name: Check out repository
         uses: actions/checkout@v3

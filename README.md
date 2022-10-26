@@ -24,6 +24,10 @@ below.  It feeds the URLs and output paths to `git-annex addurl`, and once each
 file has finished downloading, it attaches any listed metadata and extra URLs
 using `git-annex metadata` and `git-annex registerurl`, respectively.
 
+Note that the latter step can only be performed on files tracked by git-annex;
+if you, say, have configured git-annex to not track text files, then any text
+files downloaded will not have any metadata or alternative URLs registered.
+
 Options
 -------
 
@@ -81,10 +85,7 @@ object has the following fields:
   metadata`, i.e., a mapping of key names to lists of string values.
 
 - `extra_urls` — A list of alternative URLs for the resource, to be attached to
-  the downloaded file with `git-annex registerurl`.  Note that this operation
-  can only be performed on files tracked by git-annex; if you, say, have
-  configured git-annex to not track text files, then any text files downloaded
-  will not have any alternative URLs registered.
+  the downloaded file with `git-annex registerurl`.
 
 If a given input line is invalid, it is discarded, and a warning message is
 emitted.

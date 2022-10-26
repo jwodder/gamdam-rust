@@ -1,13 +1,15 @@
 use super::outputs::{Action, AnnexResult};
 use super::*;
 use bytes::Bytes;
-use relative_path::RelativePathBuf;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Clone, Debug, Serialize, Eq, PartialEq)]
 pub(crate) struct MetadataInput {
-    pub(crate) file: RelativePathBuf,
+    // We operate on keys rather than files so as to avoid issues with unlocked
+    // files (e.g., on crippled Windows filesystems) when addurl has not yet
+    // exited.
+    pub(crate) key: String,
     pub(crate) fields: HashMap<String, Vec<String>>,
 }
 
@@ -43,6 +45,7 @@ impl MetadataOutput {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use relative_path::RelativePathBuf;
 
     #[test]
     fn test_load_metadata_output_success() {
@@ -74,10 +77,10 @@ mod tests {
     #[test]
     fn test_dump_metadata_input() {
         let mi = MetadataInput {
-            file: RelativePathBuf::from_path("file.txt").unwrap(),
+            key: "SHA256E-s14239--c3784aaf20ae0867e2f491504a57a15f19eafafb59ed9faea1cfc5cfbbea2b1b.txt".into(),
             fields: HashMap::from([(String::from("color"), vec![String::from("blue")])]),
         };
-        let s = r#"{"file":"file.txt","fields":{"color":["blue"]}}"#.as_bytes();
+        let s = r#"{"key":"SHA256E-s14239--c3784aaf20ae0867e2f491504a57a15f19eafafb59ed9faea1cfc5cfbbea2b1b.txt","fields":{"color":["blue"]}}"#.as_bytes();
         assert_eq!(mi.for_input().unwrap(), s);
     }
 }
