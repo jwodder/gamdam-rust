@@ -123,7 +123,10 @@ async fn main() -> Result<ExitCode, anyhow::Error> {
         addurl_jobs: args.jobs.map_or(Jobs::CPUs, Jobs::Qty),
     };
     let report = gamdam.download(items).await?;
-    if report.downloaded > 0 && args.save && !(args.no_save_on_fail && report.failed > 0) {
+    if !report.successful.is_empty()
+        && args.save
+        && (!args.no_save_on_fail || report.failed.is_empty())
+    {
         match LoggedCommand::new("git", ["diff", "--cached", "--quiet"], &args.repo)
             .status()
             .await
@@ -136,7 +139,7 @@ async fn main() -> Result<ExitCode, anyhow::Error> {
                         "-m",
                         &args
                             .message
-                            .replace("{downloaded}", &report.downloaded.to_string()),
+                            .replace("{downloaded}", &report.successful.len().to_string()),
                     ],
                     args.repo,
                 )
@@ -151,7 +154,7 @@ async fn main() -> Result<ExitCode, anyhow::Error> {
             Err(e) => return Err(e.into()),
         }
     }
-    Ok(if report.failed == 0 {
+    Ok(if report.failed.is_empty() {
         ExitCode::SUCCESS
     } else {
         ExitCode::FAILURE

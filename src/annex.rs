@@ -234,8 +234,8 @@ impl<I: AnnexInput> Serializer<I> for AnnexCodec {
     }
 }
 
-#[derive(Debug)]
-pub(crate) struct AnnexError(Vec<String>);
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AnnexError(Vec<String>);
 
 impl fmt::Display for AnnexError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

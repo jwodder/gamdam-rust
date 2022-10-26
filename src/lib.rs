@@ -4,7 +4,7 @@ pub mod cmd;
 use crate::annex::addurl::*;
 use crate::annex::metadata::*;
 use crate::annex::registerurl::*;
-use crate::annex::*;
+pub use crate::annex::*;
 use crate::cmd::*;
 use anyhow::Context;
 use futures::sink::SinkExt;
@@ -33,13 +33,44 @@ pub struct Downloadable {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DownloadResult {
     pub downloadable: Downloadable,
+    pub download: Result<(), AnnexError>,
     pub key: Option<String>,
+    pub metadata_added: Option<Result<(), AnnexError>>,
+    pub urls_added: HashMap<Url, Result<(), AnnexError>>,
+}
+
+impl DownloadResult {
+    pub fn success(&self) -> bool {
+        self.download.is_ok()
+            && !matches!(self.metadata_added, Some(Err(_)))
+            && self.urls_added.values().all(Result::is_ok)
+    }
+
+    fn successful_download(downloadable: Downloadable, key: Option<String>) -> DownloadResult {
+        DownloadResult {
+            downloadable,
+            download: Ok(()),
+            key,
+            metadata_added: None,
+            urls_added: HashMap::new(),
+        }
+    }
+
+    fn failed_download(downloadable: Downloadable, err: AnnexError) -> DownloadResult {
+        DownloadResult {
+            downloadable,
+            download: Err(err),
+            key: None,
+            metadata_added: None,
+            urls_added: HashMap::new(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Report {
-    pub downloaded: usize,
-    pub failed: usize,
+    pub successful: Vec<DownloadResult>,
+    pub failed: Vec<DownloadResult>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -94,10 +125,10 @@ impl Gamdam {
             })
             .await;
         match r {
-            Ok((_, report, _)) => {
-                log::info!("Downloaded {} files", report.downloaded);
-                if report.failed > 0 {
-                    log::error!("{} files failed to download", report.failed);
+            Ok((_, _, report)) => {
+                log::info!("Downloaded {} files", report.successful.len());
+                if !report.failed.is_empty() {
+                    log::error!("{} files failed to download", report.failed.len());
                 }
                 Ok(report)
             }
@@ -139,9 +170,7 @@ impl Gamdam {
         mut addurl_stream: AnnexStream<AddURLOutput>,
         in_progress: Arc<InProgress>,
         sender: UnboundedSender<DownloadResult>,
-    ) -> Result<Report, anyhow::Error> {
-        let mut downloaded = 0;
-        let mut failed = 0;
+    ) -> Result<(), anyhow::Error> {
         while let Some(r) = addurl_stream
             .try_next()
             .await
@@ -169,30 +198,22 @@ impl Gamdam {
                         "Finished downloading {file} (key = {})",
                         key.clone().unwrap_or_else(|| "<none>".into())
                     );
-                    downloaded += 1;
                     let downloadable = in_progress.pop(&file)?;
-                    let res = DownloadResult { downloadable, key };
+                    let res = DownloadResult::successful_download(downloadable, key);
                     // TODO: Do something if send() fails
                     sender.send(res).unwrap();
                 }
                 Err(e) => {
                     log::error!("{file}: download failed:{e}");
-                    failed += 1;
-                    let _downloadable = in_progress.pop(&file)?;
-                    /*
-                    let res = DownloadResult {
-                        downloadable,
-                        success: false,
-                        err: e,
-                    };
+                    let downloadable = in_progress.pop(&file)?;
+                    let res = DownloadResult::failed_download(downloadable, e);
                     // TODO: Do something if send() fails
                     sender.send(res).unwrap();
-                    */
                 }
             }
         }
         log::debug!("Done reading from addurl");
-        Ok(Report { downloaded, failed })
+        Ok(())
     }
 
     async fn add_metadata(
@@ -200,37 +221,60 @@ impl Gamdam {
         mut receiver: UnboundedReceiver<DownloadResult>,
         mut metadata: AnnexIO<MetadataInput, MetadataOutput>,
         mut registerurl: AnnexIO<RegisterURLInput, RegisterURLOutput>,
-    ) -> Result<(), anyhow::Error> {
-        while let Some(r) = receiver.recv().await {
-            // if !r.success {continue; }
-            if let Some(key) = r.key {
-                let path = r.downloadable.path;
+    ) -> Result<Report, anyhow::Error> {
+        let mut successful = Vec::new();
+        let mut failed = Vec::new();
+        while let Some(mut r) = receiver.recv().await {
+            if r.download.is_err() {
+                failed.push(r);
+            } else if let Some(ref key) = r.key {
+                let path = &r.downloadable.path;
+                let mut success = true;
                 if !r.downloadable.metadata.is_empty() {
                     log::info!("Setting metadata for {path} ...");
                     let input = MetadataInput {
                         key: key.clone(),
-                        fields: r.downloadable.metadata,
+                        fields: r.downloadable.metadata.clone(),
                     };
                     match metadata.chat(input).await?.check() {
-                        Ok(_) => log::info!("Set metadata on {path}"),
-                        Err(e) => log::error!("{path}: setting metadata failed:{e}"),
+                        Ok(_) => {
+                            log::info!("Set metadata on {path}");
+                            r.metadata_added = Some(Ok(()));
+                        }
+                        Err(e) => {
+                            log::error!("{path}: setting metadata failed:{e}");
+                            r.metadata_added = Some(Err(e));
+                            success = false;
+                        }
                     }
                 }
-                for u in r.downloadable.extra_urls {
+                for u in &r.downloadable.extra_urls {
                     log::info!("Registering URL {u} for {path} ...");
                     let input = RegisterURLInput {
                         key: key.clone(),
                         url: u.clone(),
                     };
                     match registerurl.chat(input).await?.check() {
-                        Ok(_) => log::info!("Registered URL {u} for {path}"),
-                        Err(e) => log::error!("{path}: registering URL {u} failed:{e}"),
+                        Ok(_) => {
+                            log::info!("Registered URL {u} for {path}");
+                            r.urls_added.insert(u.clone(), Ok(()));
+                        }
+                        Err(e) => {
+                            log::error!("{path}: registering URL {u} failed:{e}");
+                            r.urls_added.insert(u.clone(), Err(e));
+                            success = false;
+                        }
                     }
+                }
+                if success {
+                    successful.push(r);
+                } else {
+                    failed.push(r);
                 }
             }
         }
         log::debug!("Done post-processing metadata");
-        Ok(())
+        Ok(Report { successful, failed })
     }
 
     async fn addurl(&self) -> Result<AnnexProcess<AddURLInput, AddURLOutput>, anyhow::Error> {
