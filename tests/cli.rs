@@ -201,7 +201,7 @@ fn test_gamdam_failures() {
         let mut stdin = p.stdin.take().expect("Child.stdin was unexpectedly None");
         for it in &items {
             serde_json::to_writer(&stdin, &it.item).expect("Error writing input to gamdam");
-            _ = stdin.write(b"\n").unwrap();
+            stdin.write_all(b"\n").unwrap();
         }
     }
     let r = p.wait().expect("Error waiting for gamdam");
