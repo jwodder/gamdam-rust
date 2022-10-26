@@ -1,15 +1,19 @@
 use anyhow::Context;
 use clap::builder::ArgAction;
 use clap::Parser;
+use futures::sink::SinkExt;
 use futures::stream::TryStreamExt;
+use gamdam::blc::BinaryLinesCodec;
 use gamdam::cmd::{CommandError, LoggedCommand};
-use gamdam::{ensure_annex_repo, Downloadable, Gamdam, Jobs};
+use gamdam::{ensure_annex_repo, DownloadResult, Downloadable, Gamdam, Jobs};
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use tokio::fs::File;
 use tokio::io::{stdin, AsyncRead};
-use tokio_util::codec::{FramedRead, LinesCodec};
+use tokio_serde::formats::Json;
+use tokio_serde::Framed;
+use tokio_util::codec::{FramedRead, FramedWrite, LinesCodec};
 
 /// Git-Annex Mass Downloader and Metadata-er
 ///
@@ -36,10 +40,10 @@ struct Arguments {
     #[clap(short = 'C', long = "chdir", value_name = "DIR", default_value_os_t = PathBuf::from("."), hide_default_value = true)]
     repo: PathBuf,
 
-    // TODO
-    // /// Write failed download items to the given file
-    // #[clap(short = 'F', long = "failures", value_name = "FILE")]
-    // failures: Option<PathBuf>,
+    /// Write failed download items to the given file
+    #[clap(short = 'F', long = "failures", value_name = "FILE")]
+    failures: Option<PathBuf>,
+
     /// Number of jobs for `git-annex addurl` to use  [default: one per CPU]
     #[clap(short = 'J', value_name = "INT")]
     jobs: Option<NonZeroUsize>,
@@ -88,6 +92,7 @@ impl Default for Arguments {
         Arguments {
             addurl_opts: Vec::new(),
             repo: PathBuf::from("."),
+            failures: None,
             jobs: None,
             log_level: log::LevelFilter::Info,
             message: "Downloaded {downloaded} URLs".into(),
@@ -157,6 +162,11 @@ async fn main() -> Result<ExitCode, anyhow::Error> {
     Ok(if report.failed.is_empty() {
         ExitCode::SUCCESS
     } else {
+        if let Some(path) = args.failures {
+            if let Err(e) = write_failures(path, report.failed).await {
+                log::error!("Error writing failures report: {e}");
+            }
+        }
         ExitCode::FAILURE
     })
 }
@@ -184,6 +194,28 @@ async fn read_input_file<P: AsRef<Path>>(path: P) -> Result<Vec<Downloadable>, a
         lineno += 1;
     }
     Ok(items)
+}
+
+async fn write_failures<P, I>(path: P, failures: I) -> Result<(), anyhow::Error>
+where
+    P: AsRef<Path>,
+    I: IntoIterator<Item = DownloadResult>,
+{
+    let path = path.as_ref();
+    let fp = File::create(&path)
+        .await
+        .with_context(|| format!("Error opening {} for writing", path.display()))?;
+    let sink = Framed::<_, (), _, Json<(), Downloadable>>::new(
+        FramedWrite::new(fp, BinaryLinesCodec::new()),
+        Json::default(),
+    );
+    tokio::pin!(sink);
+    for item in failures {
+        sink.send(item.downloadable)
+            .await
+            .context("Error writing to file")?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]

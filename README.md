@@ -41,10 +41,8 @@ Options
   be created.  If the directory does not belong to a Git or git-annex
   repository, it will be initialized as one.
 
-<!--
-- `-F <FILE>`, `--failures FILE` — If any files fail to download, write their
-  input records back out to `FILE`.
--->
+- `-F <FILE>`, `--failures FILE` — If any files fail to download or fail to
+  have their metadata/URLs set, write their input records back out to `FILE`.
 
 - `-J <INT>`, `--jobs <INT>` — Number of parallel jobs for `git-annex addurl`
   to use; by default, the process is instructed to use one job per CPU core.
@@ -82,7 +80,7 @@ object has the following fields:
   the URL is not the same size as the extant file.
 
 - `metadata` — A collection of metadata in the form used by `git-annex
-  metadata`, i.e., a mapping of key names to lists of string values.
+  metadata --json`, i.e., a mapping of key names to lists of string values.
 
 - `extra_urls` — A list of alternative URLs for the resource, to be attached to
   the downloaded file with `git-annex registerurl`.

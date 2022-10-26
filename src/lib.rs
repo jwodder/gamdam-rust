@@ -1,5 +1,5 @@
 mod annex;
-mod blc;
+pub mod blc;
 pub mod cmd;
 use crate::annex::addurl::*;
 use crate::annex::metadata::*;
@@ -10,7 +10,7 @@ use anyhow::Context;
 use futures::sink::SinkExt;
 use futures::stream::TryStreamExt;
 use relative_path::RelativePathBuf;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::{hash_map::Entry, HashMap};
 use std::fmt;
 use std::num::NonZeroUsize;
@@ -20,7 +20,7 @@ use tokio::fs::create_dir_all;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use url::Url;
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct Downloadable {
     pub path: RelativePathBuf,
     pub url: Url,
