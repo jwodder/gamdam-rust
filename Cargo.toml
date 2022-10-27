@@ -18,7 +18,6 @@ clap = { version = "4.0.18", default-features = false, features = ["derive", "er
 fern = "0.6.1"
 futures = "0.3.24"
 log = { version = "0.4.17", features = ["std"] }
-nix = { version = "0.25.0", default-features = false, features = ["process", "signal"] }
 relative-path = { version = "1.7.2", features = ["serde"] }
 serde = { version = "1.0.142", features = ["derive"] }
 serde_json = "1.0.83"
@@ -31,3 +30,6 @@ url = { version = "2.3.1", features = ["serde"] }
 [dev-dependencies]
 rstest = { version = "0.15.0", default-features = false }
 tempfile = "3.3.0"
+
+[target.'cfg(unix)'.dependencies]
+nix = { version = "0.25.0", default-features = false, features = ["process", "signal"] }
