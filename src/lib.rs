@@ -225,10 +225,10 @@ impl Gamdam {
         let mut successful = Vec::new();
         let mut failed = Vec::new();
         while let Some(mut r) = receiver.recv().await {
+            let path = &r.downloadable.path;
             if r.download.is_err() {
                 failed.push(r);
             } else if let Some(ref key) = r.key {
-                let path = &r.downloadable.path;
                 let mut success = true;
                 if !r.downloadable.metadata.is_empty() {
                     log::info!("Setting metadata for {path} ...");
@@ -271,6 +271,11 @@ impl Gamdam {
                 } else {
                     failed.push(r);
                 }
+            } else {
+                if !r.downloadable.metadata.is_empty() || !r.downloadable.extra_urls.is_empty() {
+                    log::warn!("Cannot set metadata for {path} as it was not assigned a key");
+                }
+                successful.push(r);
             }
         }
         log::debug!("Done post-processing metadata");
