@@ -20,7 +20,7 @@ futures = "0.3.24"
 log = { version = "0.4.17", features = ["std"] }
 relative-path = { version = "1.7.2", features = ["serde"] }
 serde = { version = "1.0.142", features = ["derive"] }
-serde_json = "1.0.83"
+serde_json = "1.0.87"
 shell-words = "1.1.0"
 tokio = { version = "1.21.2", features = ["fs", "io-std", "io-util", "macros", "process", "rt-multi-thread", "sync", "time"] }
 tokio-serde = { version = "0.8.0", features = ["json"] }
