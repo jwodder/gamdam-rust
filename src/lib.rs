@@ -126,9 +126,12 @@ impl Gamdam {
             .await;
         match r {
             Ok((_, _, report)) => {
-                log::info!("Downloaded {} files", report.successful.len());
+                log::info!("Downloaded {}", quantify(report.successful.len(), "file"));
                 if !report.failed.is_empty() {
-                    log::error!("{} files failed to download", report.failed.len());
+                    log::error!(
+                        "{} failed to download",
+                        quantify(report.failed.len(), "file")
+                    );
                 }
                 Ok(report)
             }
@@ -385,6 +388,14 @@ pub async fn ensure_annex_repo<P: AsRef<Path>>(repo: P) -> Result<(), anyhow::Er
             .await?;
     }
     Ok(())
+}
+
+fn quantify(n: usize, noun: &str) -> String {
+    if n == 1 {
+        format!("{n} {noun}")
+    } else {
+        format!("{n} {noun}s")
+    }
 }
 
 #[cfg(test)]
