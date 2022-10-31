@@ -2,6 +2,7 @@ use gamdam::Downloadable;
 use relative_path::RelativePathBuf;
 use rstest::rstest;
 use serde::Deserialize;
+use serde_jsonlines::{json_lines, WriteExt};
 use std::collections::HashMap;
 use std::fs::read_to_string;
 use std::io::Write;
@@ -122,11 +123,10 @@ fn test_gamdam_successful(#[case] infile: &str) {
     let tmpdir = tempdir().unwrap();
     let tmp_path = tmpdir.path();
     let infile = Path::new(DATA_DIR).join(infile);
-    let items =
-        serde_json::Deserializer::from_str(&read_to_string(&infile).expect("Error reading infile"))
-            .into_iter::<Downloadable>()
-            .collect::<Result<Vec<_>, _>>()
-            .expect("Error parsing infile");
+    let items = json_lines(&infile)
+        .expect("Error reading infile")
+        .collect::<Result<Vec<Downloadable>, _>>()
+        .expect("Error parsing infile");
     let r = Command::new("git")
         .args(["init"])
         .current_dir(tmp_path)
@@ -179,11 +179,10 @@ fn test_gamdam_failures() {
     let tmp_path = tmpdir.path();
     let repo = tmp_path.join("repo");
     let infile = Path::new(DATA_DIR).join("mixed-meta.jsonl");
-    let items =
-        serde_json::Deserializer::from_str(&read_to_string(infile).expect("Error reading infile"))
-            .into_iter::<AugmentedInput>()
-            .collect::<Result<Vec<_>, _>>()
-            .expect("Error parsing infile");
+    let items = json_lines(infile)
+        .expect("Error reading infile")
+        .collect::<Result<Vec<AugmentedInput>, _>>()
+        .expect("Error parsing infile");
     let mut p = Command::new(env!("CARGO_BIN_EXE_gamdam"))
         .args([
             "--log-level".as_ref(),
@@ -199,10 +198,9 @@ fn test_gamdam_failures() {
         .expect("Failed to execute gamdam");
     {
         let mut stdin = p.stdin.take().expect("Child.stdin was unexpectedly None");
-        for it in &items {
-            serde_json::to_writer(&stdin, &it.item).expect("Error writing input to gamdam");
-            stdin.write_all(b"\n").unwrap();
-        }
+        stdin
+            .write_json_lines(items.iter().map(|it| &it.item))
+            .expect("Error writing input to gamdam");
         stdin.flush().unwrap();
     }
     let r = p.wait().expect("Error waiting for gamdam");
