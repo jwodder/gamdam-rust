@@ -357,7 +357,7 @@ pub async fn ensure_annex_repo<P: AsRef<Path>>(repo: P) -> Result<(), anyhow::Er
     create_dir_all(&repo)
         .await
         .with_context(|| format!("Error creating directory {}", repo.display()))?;
-    let toplevel = LoggedCommand::new("git", ["rev-parse", "--show-toplevel"], &repo)
+    let toplevel = LoggedCommand::new("git", ["rev-parse", "--show-toplevel"], repo)
         .check_output()
         .await;
     let repo: PathBuf = match toplevel {
@@ -367,7 +367,7 @@ pub async fn ensure_annex_repo<P: AsRef<Path>>(repo: P) -> Result<(), anyhow::Er
                 "{} is not a Git repository; initializing ...",
                 repo.display()
             );
-            LoggedCommand::new("git", ["init"], &repo).status().await?;
+            LoggedCommand::new("git", ["init"], repo).status().await?;
             repo.into()
         }
         Err(e) => return Err(e.into()),
