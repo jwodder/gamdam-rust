@@ -56,6 +56,11 @@ jobs:
       - name: Activate cache
         uses: Swatinem/rust-cache@v2
 
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '^3.8'
+
       - name: Install git-annex (Ubuntu)
         if: startsWith(matrix.os, 'ubuntu')
         run: |
