@@ -121,6 +121,10 @@ async fn main() -> Result<ExitCode, anyhow::Error> {
         .apply()
         .unwrap();
     let items = read_input_file(args.infile).await?;
+    if items.is_empty() {
+        log::info!("Nothing to download");
+        return Ok(ExitCode::SUCCESS);
+    }
     ensure_annex_repo(&args.repo).await?;
     let gamdam = Gamdam {
         repo: args.repo.clone(),
