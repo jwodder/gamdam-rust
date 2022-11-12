@@ -1,6 +1,7 @@
 mod annex;
 pub mod blc;
 pub mod cmd;
+pub mod filepath;
 use crate::annex::addurl::*;
 use crate::annex::metadata::*;
 use crate::annex::registerurl::*;
