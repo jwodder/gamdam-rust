@@ -79,6 +79,12 @@ object has the following fields:
   the URL as an additional location for the file, failing if the resource at
   the URL is not the same size as the extant file.
 
+  Paths must be relative to the directory specified with `--chdir`, cannot
+  contain "`..`" as a path component, cannot end with a path separator, and
+  cannot be empty or contain only the path component "`.`".  Forward slashes
+  (`/`) are accepted as path separators on all platforms, while backslashes are
+  only treated as path separators on Windows.
+
 - `metadata` — A collection of metadata in the form used by `git-annex
   metadata --json`, i.e., a mapping of key names to lists of string values.
 
