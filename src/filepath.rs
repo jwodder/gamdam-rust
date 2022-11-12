@@ -186,7 +186,7 @@ mod tests {
     #[test]
     #[cfg(windows)]
     fn test_deserialize_windows() {
-        let s = r#"{"path":"foo\bar"}"#;
+        let s = r#"{"path":"foo\\bar"}"#;
         let parsed = serde_json::from_str::<Structure>(s).unwrap();
         assert_eq!(
             parsed,
