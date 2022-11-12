@@ -5,31 +5,17 @@ use thiserror::Error;
 /// A normalized, nonempty, forward-slash-separated UTF-8 encoded relative file
 /// path
 #[derive(Clone, Eq, Hash, PartialEq)]
-pub struct FilePath(Vec<String>);
+pub struct FilePath(String);
 
 impl fmt::Debug for FilePath {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str("\"")?;
-        for (i, part) in self.0.iter().enumerate() {
-            if i > 0 {
-                f.write_str("/")?;
-            }
-            write!(f, "{}", part.escape_debug())?;
-        }
-        f.write_str("\"")?;
-        Ok(())
+        fmt::Debug::fmt(&self.0, f)
     }
 }
 
 impl fmt::Display for FilePath {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for (i, part) in self.0.iter().enumerate() {
-            if i > 0 {
-                f.write_str("/")?;
-            }
-            f.write_str(part)?;
-        }
-        Ok(())
+        fmt::Display::fmt(&self.0, f)
     }
 }
 
@@ -52,11 +38,16 @@ impl TryFrom<&Path> for FilePath {
 
     fn try_from(path: &Path) -> Result<FilePath, FilePathError> {
         // TODO: Prohibit paths that ends with a file path separator
-        let mut output = Vec::new();
+        let mut output = String::new();
         for c in path.components() {
             match c {
                 Component::Normal(part) => match part.to_str() {
-                    Some(s) => output.push(String::from(s)),
+                    Some(s) => {
+                        if !output.is_empty() {
+                            output.push('/');
+                        }
+                        output.push_str(s);
+                    }
                     None => return Err(FilePathError::Undecodable),
                 },
                 Component::CurDir => (),
