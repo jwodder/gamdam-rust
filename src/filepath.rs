@@ -1,3 +1,4 @@
+use cfg_if::cfg_if;
 use serde::de::{Deserializer, Unexpected, Visitor};
 use serde::ser::Serializer;
 use serde::{Deserialize, Serialize};
@@ -69,6 +70,8 @@ impl<'de> Deserialize<'de> for FilePath {
 pub enum FilePathError {
     #[error("Path contains no pathnames")]
     Empty,
+    #[error("Path does not refer to a file")]
+    NotFile,
     #[error("Path is not normalized")]
     NotNormalized,
     #[error("Path is not relative")]
@@ -77,11 +80,23 @@ pub enum FilePathError {
     Undecodable,
 }
 
+cfg_if! {
+    if #[cfg(windows)] {
+        const PATHSEP: &[char] = &["\\", "/"];
+    } else {
+        const PATHSEP: char = '/';
+    }
+}
+
 impl TryFrom<&Path> for FilePath {
     type Error = FilePathError;
 
     fn try_from(path: &Path) -> Result<FilePath, FilePathError> {
-        // TODO: Prohibit paths that end with a file path separator
+        match path.to_str() {
+            Some(s) if s.ends_with(PATHSEP) => return Err(FilePathError::NotFile),
+            None => return Err(FilePathError::Undecodable),
+            _ => (),
+        }
         let mut output = String::new();
         for c in path.components() {
             match c {
@@ -135,7 +150,6 @@ mod tests {
     #[case("foo/.", "foo")]
     #[case("./foo", "foo")]
     #[case("foo/./bar", "foo/bar")]
-    #[case("foo/", "foo")]
     #[case("foo//bar", "foo/bar")]
     #[cfg_attr(windows, case(r#"foo\bar"#, "foo/bar"))]
     fn test_filepath_try_from(#[case] path: &str, #[case] displayed: &str) {
@@ -146,14 +160,16 @@ mod tests {
     #[case("", FilePathError::Empty)]
     #[case(".", FilePathError::Empty)]
     #[case("..", FilePathError::NotNormalized)]
-    #[case("/", FilePathError::NotRelative)]
+    #[case("/", FilePathError::NotFile)]
     #[case("/foo", FilePathError::NotRelative)]
     #[case("foo/..", FilePathError::NotNormalized)]
     #[case("../foo", FilePathError::NotNormalized)]
     #[case("foo/../bar", FilePathError::NotNormalized)]
     #[case("foo/bar/..", FilePathError::NotNormalized)]
+    #[case("foo/", FilePathError::NotFile)]
     #[cfg_attr(windows, case(r#"\foo\bar"#, FilePathError::NotRelative))]
     #[cfg_attr(windows, case(r#"C:\foo\bar"#, FilePathError::NotRelative))]
+    #[cfg_attr(windows, case(r#"foo\"#, FilePathError::NotFile))]
     fn test_filepath_try_from_err(#[case] path: &str, #[case] err: FilePathError) {
         assert_eq!(FilePath::try_from(path), Err(err));
     }
@@ -204,6 +220,8 @@ mod tests {
     #[case(r#"{"path":"../foo/bar"}"#)]
     #[case(r#"{"path":"foo/../bar"}"#)]
     #[case(r#"{"path":"/foo/bar"}"#)]
+    #[case(r#"{"path":"foo/bar/"}"#)]
+    #[cfg_attr(windows, case(r#"{"path":"foo\\bar\\"}"#))]
     fn test_deserialize_err(#[case] s: &str) {
         assert!(serde_json::from_str::<Structure>(s).is_err());
     }
