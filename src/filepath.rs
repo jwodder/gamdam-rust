@@ -1,9 +1,12 @@
+use serde::de::{Deserializer, Unexpected, Visitor};
+use serde::ser::Serializer;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::path::{Component, Path};
 use thiserror::Error;
 
-/// A normalized, nonempty, forward-slash-separated UTF-8 encoded relative file
-/// path
+/// A normalized, nonempty, forward-slash-separated, UTF-8 encoded, relative
+/// file path
 #[derive(Clone, Eq, Hash, PartialEq)]
 pub struct FilePath(String);
 
@@ -16,6 +19,41 @@ impl fmt::Debug for FilePath {
 impl fmt::Display for FilePath {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Display::fmt(&self.0, f)
+    }
+}
+
+impl Serialize for FilePath {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.0)
+    }
+}
+
+struct FilePathVisitor;
+
+impl<'de> Visitor<'de> for FilePathVisitor {
+    type Value = FilePath;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a normalized, nonempty, relative path")
+    }
+
+    fn visit_str<E>(self, input: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        FilePath::try_from(input).map_err(|_| E::invalid_value(Unexpected::Str(input), &self))
+    }
+}
+
+impl<'de> Deserialize<'de> for FilePath {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_str(FilePathVisitor)
     }
 }
 
@@ -37,7 +75,7 @@ impl TryFrom<&Path> for FilePath {
     type Error = FilePathError;
 
     fn try_from(path: &Path) -> Result<FilePath, FilePathError> {
-        // TODO: Prohibit paths that ends with a file path separator
+        // TODO: Prohibit paths that end with a file path separator
         let mut output = String::new();
         for c in path.components() {
             match c {
@@ -112,5 +150,55 @@ mod tests {
     #[cfg_attr(windows, case(r#"C:\foo\bar"#, FilePathError::NotRelative))]
     fn test_filepath_try_from_err(#[case] path: &str, #[case] err: FilePathError) {
         assert_eq!(FilePath::try_from(path), Err(err));
+    }
+
+    #[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
+    struct Structure {
+        path: FilePath,
+    }
+
+    #[test]
+    fn test_serialize() {
+        let st = Structure {
+            path: "foo/bar".try_into().unwrap(),
+        };
+        assert_eq!(serde_json::to_string(&st).unwrap(), r#"{"path":"foo/bar"}"#);
+    }
+
+    #[test]
+    fn test_deserialize() {
+        let s = r#"{"path":"foo/bar"}"#;
+        let parsed = serde_json::from_str::<Structure>(s).unwrap();
+        assert_eq!(
+            parsed,
+            Structure {
+                path: "foo/bar".try_into().unwrap()
+            }
+        );
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn test_deserialize_windows() {
+        let s = r#"{"path":"foo\bar"}"#;
+        let parsed = serde_json::from_str::<Structure>(s).unwrap();
+        assert_eq!(
+            parsed,
+            Structure {
+                path: "foo/bar".try_into().unwrap()
+            }
+        );
+    }
+
+    #[rstest]
+    #[case(r#"{"path":42}"#)]
+    #[case(r#"{"path":""}"#)]
+    #[case(r#"{"path":"."}"#)]
+    #[case(r#"{"path":".."}"#)]
+    #[case(r#"{"path":"../foo/bar"}"#)]
+    #[case(r#"{"path":"foo/../bar"}"#)]
+    #[case(r#"{"path":"/foo/bar"}"#)]
+    fn test_deserialize_err(#[case] s: &str) {
+        assert!(serde_json::from_str::<Structure>(s).is_err());
     }
 }
