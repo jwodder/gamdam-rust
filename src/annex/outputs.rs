@@ -1,4 +1,4 @@
-use relative_path::RelativePathBuf;
+use crate::filepath::FilePath;
 use serde::Deserialize;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
@@ -13,6 +13,6 @@ pub(crate) struct Action {
     pub(crate) command: String,
     // `file` can be `None` for an in-progress download requested without an
     // explicit download path
-    pub(crate) file: Option<RelativePathBuf>,
+    pub(crate) file: Option<FilePath>,
     pub(crate) input: Vec<String>,
 }

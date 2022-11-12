@@ -1,16 +1,16 @@
 mod annex;
 pub mod blc;
 pub mod cmd;
-pub mod filepath;
+mod filepath;
 use crate::annex::addurl::*;
 use crate::annex::metadata::*;
 use crate::annex::registerurl::*;
 pub use crate::annex::*;
 use crate::cmd::*;
+pub use crate::filepath::*;
 use anyhow::Context;
 use futures::sink::SinkExt;
 use futures::stream::TryStreamExt;
-use relative_path::RelativePathBuf;
 use serde::{Deserialize, Serialize};
 use std::collections::{hash_map::Entry, HashMap};
 use std::fmt;
@@ -23,7 +23,7 @@ use url::Url;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct Downloadable {
-    pub path: RelativePathBuf,
+    pub path: FilePath,
     pub url: Url,
     #[serde(default)]
     pub metadata: HashMap<String, Vec<String>>,
@@ -323,7 +323,7 @@ impl Gamdam {
 }
 
 struct InProgress {
-    data: Mutex<HashMap<RelativePathBuf, Downloadable>>,
+    data: Mutex<HashMap<FilePath, Downloadable>>,
 }
 
 impl InProgress {
@@ -344,7 +344,7 @@ impl InProgress {
         }
     }
 
-    fn pop(&self, file: &RelativePathBuf) -> Result<Downloadable, anyhow::Error> {
+    fn pop(&self, file: &FilePath) -> Result<Downloadable, anyhow::Error> {
         let mut data = self.data.lock().unwrap();
         match data.remove(file) {
             Some(dl) => Ok(dl),
@@ -410,7 +410,7 @@ mod tests {
         assert_eq!(
             parsed,
             Downloadable {
-                path: RelativePathBuf::from_path("foo/bar/baz.txt").unwrap(),
+                path: FilePath::try_from("foo/bar/baz.txt").unwrap(),
                 url: Url::parse("https://example.com/baz.txt").unwrap(),
                 metadata: HashMap::new(),
                 extra_urls: Vec::new(),
@@ -418,15 +418,9 @@ mod tests {
         );
     }
 
-    // <https://github.com/udoprog/relative-path/issues/41>
-    /*
     #[test]
     fn test_load_downloadable_absolute_path() {
         let s = r#"{"path": "/foo/bar/baz.txt", "url": "https://example.com/baz.txt"}"#;
-        match serde_json::from_str::<Downloadable>(s) {
-            Err(_) => (),
-            Ok(v) => panic!("Deserialization did not fail: {v:?}"),
-        }
+        assert!(serde_json::from_str::<Downloadable>(s).is_err());
     }
-    */
 }

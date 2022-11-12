@@ -10,6 +10,12 @@ use thiserror::Error;
 #[derive(Clone, Eq, Hash, PartialEq)]
 pub struct FilePath(String);
 
+impl FilePath {
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
 impl fmt::Debug for FilePath {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Debug::fmt(&self.0, f)

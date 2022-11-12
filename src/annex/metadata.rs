@@ -45,7 +45,7 @@ impl MetadataOutput {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use relative_path::RelativePathBuf;
+    use crate::filepath::FilePath;
 
     #[test]
     fn test_load_metadata_output_success() {
@@ -61,7 +61,7 @@ mod tests {
                     (String::from("lastchanged"), vec![String::from("2022-10-17@19-53-03")]),
                 ]),
                 action: Action {
-                    file: Some(RelativePathBuf::from_path("file.txt").unwrap()),
+                    file: Some(FilePath::try_from("file.txt").unwrap()),
                     command: String::from("metadata"),
                     input: vec![String::from(r#"{"file": "file.txt", "fields": {"color": ["blue"], "flavors": ["strange", "charmed"], "mouthfeel": []}}"#)],
                 },

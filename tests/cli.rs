@@ -1,5 +1,4 @@
-use gamdam::Downloadable;
-use relative_path::RelativePathBuf;
+use gamdam::{Downloadable, FilePath};
 use rstest::rstest;
 use serde::Deserialize;
 use serde_jsonlines::{json_lines, WriteExt};
@@ -67,7 +66,7 @@ impl Annex {
             .success()
     }
 
-    fn get_metadata(&self, path: &RelativePathBuf) -> HashMap<String, Vec<String>> {
+    fn get_metadata(&self, path: &FilePath) -> HashMap<String, Vec<String>> {
         let r = Command::new("git-annex")
             .args(["metadata", "--json", "--"])
             .arg(path.as_str())
@@ -80,7 +79,7 @@ impl Annex {
             .fields
     }
 
-    fn get_urls(&self, path: &RelativePathBuf) -> Vec<String> {
+    fn get_urls(&self, path: &FilePath) -> Vec<String> {
         let r = Command::new("git-annex")
             .args(["whereis", "--json", "--"])
             .arg(path.as_str())

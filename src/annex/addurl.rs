@@ -1,13 +1,13 @@
 use super::outputs::{Action, AnnexResult};
 use super::*;
+use crate::filepath::FilePath;
 use bytes::Bytes;
-use relative_path::RelativePathBuf;
 use serde::Deserialize;
 use url::Url;
 
 pub(crate) struct AddURLInput {
     pub(crate) url: Url,
-    pub(crate) path: RelativePathBuf,
+    pub(crate) path: FilePath,
 }
 
 impl AnnexInput for AddURLInput {
@@ -41,7 +41,7 @@ pub(crate) enum AddURLOutput {
 }
 
 impl AddURLOutput {
-    pub(crate) fn file(&self) -> &Option<RelativePathBuf> {
+    pub(crate) fn file(&self) -> &Option<FilePath> {
         &match self {
             AddURLOutput::Progress { action, .. } => action,
             AddURLOutput::Completion { action, .. } => action,
@@ -76,7 +76,7 @@ mod tests {
                 key: Some(String::from("MD5E-s3405224--dd15380fc1b27858f647a30cc2399a52.pdf")),
                 action: Action {
                     command: String::from("addurl"),
-                    file: Some(RelativePathBuf::from_path("programming/gameboy.pdf").unwrap()),
+                    file: Some(FilePath::try_from("programming/gameboy.pdf").unwrap()),
                     input: vec![String::from("https://archive.org/download/GameBoyProgManVer1.1/GameBoyProgManVer1.1.pdf programming/gameboy.pdf")],
                 },
                 result: AnnexResult {
@@ -97,7 +97,7 @@ mod tests {
                 key: None,
                 action: Action {
                     command: String::from("addurl"),
-                    file: Some(RelativePathBuf::from_path("text/shakespeare/hamlet.txt").unwrap()),
+                    file: Some(FilePath::try_from("text/shakespeare/hamlet.txt").unwrap()),
                     input: vec![String::from("https://gutenberg.org/files/1524/1524-0.txt text/shakespeare/hamlet.txt")],
                 },
                 result: AnnexResult {
@@ -119,7 +119,7 @@ mod tests {
                 key: None,
                 action: Action {
                     command: String::from("addurl"),
-                    file: Some(RelativePathBuf::from_path("nexists.pdf").unwrap()),
+                    file: Some(FilePath::try_from("nexists.pdf").unwrap()),
                     input: vec![String::from(
                         "https://www.varonathe.org/nonexistent.pdf nexists.pdf"
                     )],
@@ -144,7 +144,7 @@ mod tests {
                 percent_progress: Some(String::from("17.79%")),
                 action: Action {
                     command: String::from("addurl"),
-                    file: Some(RelativePathBuf::from_path("programming/gameboy.pdf").unwrap()),
+                    file: Some(FilePath::try_from("programming/gameboy.pdf").unwrap()),
                     input: vec![String::from("https://archive.org/download/GameBoyProgManVer1.1/GameBoyProgManVer1.1.pdf programming/gameboy.pdf")],
                 },
             }
