@@ -82,7 +82,7 @@ pub enum FilePathError {
 
 cfg_if! {
     if #[cfg(windows)] {
-        const PATHSEP: &[char] = &["\\", "/"];
+        const PATHSEP: &[char] = &['\\', '/'];
     } else {
         const PATHSEP: char = '/';
     }
