@@ -14,7 +14,7 @@ anyhow = "1.0.66"
 bytes = "1.2.1"
 cfg-if = "1.0.0"
 chrono = "0.4.22"
-clap = { version = "4.0.19", default-features = false, features = ["derive", "error-context", "help", "std", "suggestions", "usage", "wrap_help"] }
+clap = { version = "4.0.23", default-features = false, features = ["derive", "error-context", "help", "std", "suggestions", "usage", "wrap_help"] }
 fern = "0.6.1"
 futures = "0.3.24"
 log = { version = "0.4.17", features = ["std"] }
