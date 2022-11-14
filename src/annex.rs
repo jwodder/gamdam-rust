@@ -153,7 +153,7 @@ impl AnnexTerminator {
         }
     }
 
-    pub(crate) async fn terminate(&mut self, timeout: Option<Duration>) {
+    pub(crate) async fn terminate(&mut self, #[allow(unused)] timeout: Option<Duration>) {
         cfg_if! {
             if #[cfg(unix)] {
                 log::debug!("Forcibly terminating `git-annex {}` command", self.name);
