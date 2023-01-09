@@ -84,6 +84,8 @@ jobs:
         run: |
           python3 -m pip install --upgrade datalad-installer
           datalad-installer -l DEBUG --sudo ok git-annex -m datalad/git-annex:release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build crate
         run: cargo build --verbose
