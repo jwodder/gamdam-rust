@@ -2,7 +2,7 @@
 name = "gamdam"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.63"
+rust-version = "1.64"
 description = "Git-Annex Mass Downloader and Metadata-er"
 authors = ["John Thorvald Wodder II <gamdam-rust@varonathe.org>"]
 repository = "https://github.com/jwodder/gamdam-rust"
