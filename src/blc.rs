@@ -225,7 +225,7 @@ impl fmt::Display for BinaryLinesCodecError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             BinaryLinesCodecError::MaxLineLengthExceeded => write!(f, "max line length exceeded"),
-            BinaryLinesCodecError::Io(e) => write!(f, "{}", e),
+            BinaryLinesCodecError::Io(e) => write!(f, "{e}"),
         }
     }
 }
