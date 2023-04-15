@@ -99,9 +99,9 @@ impl fmt::Display for CommandError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             CommandError::Startup { cmdline, source } => {
-                write!(f, "Failed to run `{cmdline}`: {source}")
+                write!(f, "failed to run `{cmdline}`: {source}")
             }
-            CommandError::Exit { cmdline, rc } => write!(f, "Command `{cmdline}` failed: {rc}"),
+            CommandError::Exit { cmdline, rc } => write!(f, "command `{cmdline}` failed: {rc}"),
         }
     }
 }
@@ -139,16 +139,16 @@ impl fmt::Display for CommandOutputError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             CommandOutputError::Startup { cmdline, source } => {
-                write!(f, "Failed to run `{cmdline}`: {source}")
+                write!(f, "failed to run `{cmdline}`: {source}")
             }
             CommandOutputError::Wait { cmdline, source } => {
-                write!(f, "Error getting output from `{cmdline}`: {source}")
+                write!(f, "error getting output from `{cmdline}`: {source}")
             }
             CommandOutputError::Exit { cmdline, rc } => {
-                write!(f, "Command `{cmdline}` failed: {rc}")
+                write!(f, "command `{cmdline}` failed: {rc}")
             }
             CommandOutputError::Decode { cmdline, source } => {
-                write!(f, "Could not decode `{cmdline}` output: {source}")
+                write!(f, "could not decode `{cmdline}` output: {source}")
             }
         }
     }

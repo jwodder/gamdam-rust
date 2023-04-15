@@ -68,15 +68,15 @@ impl<'de> Deserialize<'de> for FilePath {
 /// unnormalized, or undecodable relative path
 #[derive(Copy, Clone, Debug, Hash, Eq, Error, PartialEq)]
 pub enum FilePathError {
-    #[error("Path contains no pathnames")]
+    #[error("path contains no pathnames")]
     Empty,
-    #[error("Path does not refer to a file")]
+    #[error("path does not refer to a file")]
     NotFile,
-    #[error("Path is not normalized")]
+    #[error("path is not normalized")]
     NotNormalized,
-    #[error("Path is not relative")]
+    #[error("path is not relative")]
     NotRelative,
-    #[error("Path is not Unicode")]
+    #[error("path is not Unicode")]
     Undecodable,
 }
 
