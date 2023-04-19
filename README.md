@@ -31,10 +31,10 @@ files downloaded will not have any metadata or alternative URLs registered.
 Options
 -------
 
-- `--addurl-opts <OPTIONS> ...` — Extra options to pass to the `git-annex
-  addurl` command.  Pass multiple options & arguments as separate arguments on
-  the command line, and terminate the sequence of options with `--`, e.g.,
-  e.g., `--addurl-opts --user-agent "gamdam via git-annex" --`.
+- `--addurl-opts <OPTIONS>` — Extra options to pass to the `git-annex addurl`
+  command.  Multiple options & arguments need to be quoted as a single string,
+  which must also use proper shell quoting internally, e.g.,
+  `--addurl-opts="--user-agent 'gamdam via git-annex'"`.
 
 - `-C <DIR>`, `--chdir <DIR>` — The directory in which to download files;
   defaults to the current directory.  If the directory does not exist, it will

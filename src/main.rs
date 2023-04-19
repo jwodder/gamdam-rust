@@ -28,10 +28,12 @@ use tokio_util::codec::{FramedRead, FramedWrite, LinesCodec};
 struct Arguments {
     /// Additional options to pass to `git-annex addurl`
     ///
-    /// Supply multiple options as multiple arguments, the same way you'd pass
-    /// them to git-annex.  Terminate the list of options with `--`.
-    #[clap(long, value_name = "OPTIONS", num_args = 1.., allow_hyphen_values = true, value_terminator = "--", action = ArgAction::Set)]
-    addurl_opts: Vec<String>,
+    /// Multiple options & arguments need to be quoted as a single string,
+    /// which must also use proper shell quoting internally.
+    #[clap(long, value_name = "OPTIONS", value_parser = shell_words::split, allow_hyphen_values = true)]
+    // We need to refer to Vec with a fully-qualified name in order for clap to
+    // not treat the option as multiuse.
+    addurl_opts: Option<std::vec::Vec<String>>,
 
     /// git-annex repository to operate in  [default: current directory]
     ///
@@ -90,7 +92,7 @@ struct Arguments {
 impl Default for Arguments {
     fn default() -> Arguments {
         Arguments {
-            addurl_opts: Vec::new(),
+            addurl_opts: None,
             repo: PathBuf::from("."),
             failures: None,
             jobs: None,
@@ -128,7 +130,7 @@ async fn main() -> Result<ExitCode, anyhow::Error> {
     ensure_annex_repo(&args.repo).await?;
     let gamdam = Gamdam {
         repo: args.repo.clone(),
-        addurl_options: args.addurl_opts,
+        addurl_options: args.addurl_opts.unwrap_or_default(),
         addurl_jobs: args.jobs.map_or(Jobs::CPUs, Jobs::Qty),
     };
     let report = gamdam.download(items).await?;
@@ -279,14 +281,13 @@ mod tests {
         let args = Arguments::try_parse_from([
             "arg0",
             "--addurl-opts",
-            "--user-agent",
-            "gamdam via git-annex",
+            "--user-agent 'gamdam via git-annex'",
         ])
         .unwrap();
         assert_eq!(
             args,
             Arguments {
-                addurl_opts: vec!["--user-agent".into(), "gamdam via git-annex".into()],
+                addurl_opts: Some(vec!["--user-agent".into(), "gamdam via git-annex".into()]),
                 ..Arguments::default()
             }
         );
@@ -297,35 +298,18 @@ mod tests {
         let args = Arguments::try_parse_from([
             "arg0",
             "--addurl-opts",
-            "--user-agent",
-            "gamdam via git-annex",
-            "--",
+            "--user-agent 'gamdam via git-annex'",
             "file.json",
         ])
         .unwrap();
         assert_eq!(
             args,
             Arguments {
-                addurl_opts: vec!["--user-agent".into(), "gamdam via git-annex".into()],
+                addurl_opts: Some(vec!["--user-agent".into(), "gamdam via git-annex".into()]),
                 infile: "file.json".into(),
                 ..Arguments::default()
             }
         );
-    }
-
-    #[test]
-    fn test_cli_multi_addurl_opts() {
-        let args = Arguments::try_parse_from([
-            "arg0",
-            "--addurl-opts",
-            "--user-agent",
-            "gamdam via git-annex",
-            "--",
-            "--addurl-opts",
-            "-c",
-            "annex.alwayscompact=false",
-        ]);
-        assert!(matches!(args, Err(_)))
     }
 
     #[test]
