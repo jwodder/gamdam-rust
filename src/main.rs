@@ -2,18 +2,15 @@ use anyhow::Context;
 use clap::builder::ArgAction;
 use clap::Parser;
 use futures::sink::SinkExt;
-use futures::stream::TryStreamExt;
-use gamdam::blc::BinaryLinesCodec;
+use futures::StreamExt;
 use gamdam::cmd::{CommandError, LoggedCommand};
 use gamdam::{ensure_annex_repo, DownloadResult, Downloadable, Gamdam, Jobs};
+use patharg::{InputArg, OutputArg};
+use serde_jsonlines::{AsyncBufReadJsonLines, AsyncWriteJsonLines};
 use std::num::NonZeroUsize;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::ExitCode;
-use tokio::fs::File;
-use tokio::io::{stdin, AsyncRead};
-use tokio_serde::formats::Json;
-use tokio_serde::Framed;
-use tokio_util::codec::{FramedRead, FramedWrite, LinesCodec};
+use tokio::io::BufReader;
 
 /// Git-Annex Mass Downloader and Metadata-er
 ///
@@ -44,7 +41,7 @@ struct Arguments {
 
     /// Write failed download items to the given file
     #[clap(short = 'F', long = "failures", value_name = "FILE")]
-    failures: Option<PathBuf>,
+    failures: Option<OutputArg>,
 
     /// Number of jobs for `git-annex addurl` to use  [default: one per CPU]
     #[clap(short = 'J', value_name = "INT")]
@@ -85,8 +82,8 @@ struct Arguments {
 
     /// File containing JSON lines with "url", "path", "metadata" (optional),
     /// and "extra_urls" (optional) fields  [default: read from stdin]
-    #[clap(default_value_os_t = PathBuf::from("-"), hide_default_value = true)]
-    infile: PathBuf,
+    #[clap(default_value_t, hide_default_value = true)]
+    infile: InputArg,
 }
 
 impl Default for Arguments {
@@ -101,7 +98,7 @@ impl Default for Arguments {
             no_save_on_fail: false,
             save: true,
             _no_save: false,
-            infile: PathBuf::from("-"),
+            infile: InputArg::Stdin,
         }
     }
 }
@@ -165,57 +162,54 @@ async fn main() -> Result<ExitCode, anyhow::Error> {
             Err(e) => return Err(e.into()),
         }
     }
-    Ok(if report.failed.is_empty() {
-        ExitCode::SUCCESS
+    if report.failed.is_empty() {
+        Ok(ExitCode::SUCCESS)
     } else {
         if let Some(path) = args.failures {
             if let Err(e) = write_failures(path, report.failed).await {
                 log::error!("Error writing failures report: {e}");
             }
         }
-        ExitCode::FAILURE
-    })
+        Ok(ExitCode::FAILURE)
+    }
 }
 
-async fn read_input_file<P: AsRef<Path>>(path: P) -> Result<Vec<Downloadable>, anyhow::Error> {
-    let path = path.as_ref();
-    let fp: Box<dyn AsyncRead + std::marker::Unpin> = if path == Path::new("-") {
-        Box::new(stdin())
-    } else {
-        Box::new(
-            File::open(&path)
-                .await
-                .with_context(|| format!("Error opening {} for reading", path.display()))?,
-        )
-    };
-    let lines = FramedRead::new(fp, LinesCodec::new_with_max_length(65535));
-    tokio::pin!(lines);
+async fn read_input_file(infile: InputArg) -> Result<Vec<Downloadable>, anyhow::Error> {
+    let mut lines = BufReader::new(
+        infile
+            .async_open()
+            .await
+            .with_context(|| format!("Error opening {infile} for reading"))?,
+    )
+    .json_lines::<Downloadable>();
     let mut items = Vec::new();
     let mut lineno = 1;
-    while let Some(ln) = lines.try_next().await.context("Error reading input")? {
-        match serde_json::from_str(&ln) {
+    while let Some(r) = lines.next().await {
+        match r {
             Ok(d) => items.push(d),
-            Err(e) => log::warn!("Input line {} is invalid; discarding: {}", lineno, e),
+            Err(e)
+                if e.get_ref()
+                    .map(|inner| inner.is::<serde_json::Error>())
+                    .unwrap_or(false) =>
+            {
+                log::warn!("Input line {} is invalid; discarding: {}", lineno, e);
+            }
+            Err(e) => return Err(e).context("Error reading input"),
         }
         lineno += 1;
     }
     Ok(items)
 }
 
-async fn write_failures<P, I>(path: P, failures: I) -> Result<(), anyhow::Error>
+async fn write_failures<I>(outfile: OutputArg, failures: I) -> Result<(), anyhow::Error>
 where
-    P: AsRef<Path>,
     I: IntoIterator<Item = DownloadResult>,
 {
-    let path = path.as_ref();
-    let fp = File::create(&path)
+    let mut sink = outfile
+        .async_create()
         .await
-        .with_context(|| format!("Error opening {} for writing", path.display()))?;
-    let sink = Framed::<_, (), _, Json<(), Downloadable>>::new(
-        FramedWrite::new(fp, BinaryLinesCodec::new()),
-        Json::default(),
-    );
-    tokio::pin!(sink);
+        .with_context(|| format!("Error opening {outfile} for writing"))?
+        .into_json_lines_sink();
     for item in failures {
         sink.send(item.downloadable)
             .await
@@ -270,7 +264,7 @@ mod tests {
         assert_eq!(
             args,
             Arguments {
-                infile: "-".into(),
+                infile: InputArg::Stdin,
                 ..Arguments::default()
             }
         );
@@ -306,7 +300,7 @@ mod tests {
             args,
             Arguments {
                 addurl_opts: Some(vec!["--user-agent".into(), "gamdam via git-annex".into()]),
-                infile: "file.json".into(),
+                infile: InputArg::Path("file.json".into()),
                 ..Arguments::default()
             }
         );

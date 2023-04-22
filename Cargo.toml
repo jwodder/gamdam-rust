@@ -18,7 +18,9 @@ clap = { version = "4.1.8", default-features = false, features = ["derive", "err
 fern = "0.6.1"
 futures = "0.3.26"
 log = { version = "0.4.17", features = ["std"] }
+patharg = { version = "0.2.0", features = ["tokio"] }
 serde = { version = "1.0.152", features = ["derive"] }
+serde-jsonlines = { version = "0.4.0", features = ["async"] }
 serde_json = "1.0.94"
 shell-words = "1.1.0"
 thiserror = "1.0.39"
@@ -29,7 +31,6 @@ url = { version = "2.3.1", features = ["serde"] }
 
 [dev-dependencies]
 rstest = { version = "0.16.0", default-features = false }
-serde-jsonlines = "0.4.0"
 tempfile = "3.4.0"
 
 [target.'cfg(unix)'.dependencies]
