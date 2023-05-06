@@ -1,8 +1,8 @@
 use std::ffi::{OsStr, OsString};
-use std::fmt;
 use std::path::Path;
 use std::process::ExitStatus;
 use std::process::Stdio;
+use thiserror::Error;
 use tokio::process::Command;
 
 pub struct LoggedCommand {
@@ -83,84 +83,34 @@ impl LoggedCommand {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum CommandError {
+    #[error("failed to run `{cmdline}`: {source}")]
     Startup {
         cmdline: String,
         source: std::io::Error,
     },
-    Exit {
-        cmdline: String,
-        rc: ExitStatus,
-    },
+    #[error("command `{cmdline}` failed: {rc}")]
+    Exit { cmdline: String, rc: ExitStatus },
 }
 
-impl fmt::Display for CommandError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            CommandError::Startup { cmdline, source } => {
-                write!(f, "failed to run `{cmdline}`: {source}")
-            }
-            CommandError::Exit { cmdline, rc } => write!(f, "command `{cmdline}` failed: {rc}"),
-        }
-    }
-}
-
-impl std::error::Error for CommandError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            CommandError::Startup { source, .. } => Some(source),
-            _ => None,
-        }
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum CommandOutputError {
+    #[error("failed to run `{cmdline}`: {source}")]
     Startup {
         cmdline: String,
         source: std::io::Error,
     },
+    #[error("error getting output from `{cmdline}`: {source}")]
     Wait {
         cmdline: String,
         source: std::io::Error,
     },
-    Exit {
-        cmdline: String,
-        rc: ExitStatus,
-    },
+    #[error("command `{cmdline}` failed: {rc}")]
+    Exit { cmdline: String, rc: ExitStatus },
+    #[error("could not decode `{cmdline}` output: {source}")]
     Decode {
         cmdline: String,
         source: std::string::FromUtf8Error,
     },
-}
-
-impl fmt::Display for CommandOutputError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            CommandOutputError::Startup { cmdline, source } => {
-                write!(f, "failed to run `{cmdline}`: {source}")
-            }
-            CommandOutputError::Wait { cmdline, source } => {
-                write!(f, "error getting output from `{cmdline}`: {source}")
-            }
-            CommandOutputError::Exit { cmdline, rc } => {
-                write!(f, "command `{cmdline}` failed: {rc}")
-            }
-            CommandOutputError::Decode { cmdline, source } => {
-                write!(f, "could not decode `{cmdline}` output: {source}")
-            }
-        }
-    }
-}
-
-impl std::error::Error for CommandOutputError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            CommandOutputError::Startup { source, .. } => Some(source),
-            CommandOutputError::Wait { source, .. } => Some(source),
-            CommandOutputError::Decode { source, .. } => Some(source),
-            _ => None,
-        }
-    }
 }
