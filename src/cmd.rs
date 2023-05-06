@@ -1,7 +1,6 @@
 use std::ffi::{OsStr, OsString};
 use std::path::Path;
-use std::process::ExitStatus;
-use std::process::Stdio;
+use std::process::{ExitStatus, Stdio};
 use thiserror::Error;
 use tokio::process::Command;
 
@@ -63,7 +62,7 @@ impl LoggedCommand {
                     Ok(s) => Ok(s),
                     Err(e) => Err(CommandOutputError::Decode {
                         cmdline: self.cmdline,
-                        source: e,
+                        source: e.utf8_error(),
                     }),
                 },
                 Ok(output) => Err(CommandOutputError::Exit {
@@ -111,6 +110,6 @@ pub enum CommandOutputError {
     #[error("could not decode `{cmdline}` output: {source}")]
     Decode {
         cmdline: String,
-        source: std::string::FromUtf8Error,
+        source: std::str::Utf8Error,
     },
 }
