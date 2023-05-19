@@ -8,9 +8,10 @@ use bytes::Bytes;
 use cfg_if::cfg_if;
 use futures::sink::SinkExt;
 use futures::stream::{TryStream, TryStreamExt};
+use indenter::indented;
 use serde::Deserialize;
 use std::ffi::OsStr;
-use std::fmt;
+use std::fmt::{self, Write};
 use std::future::Future;
 use std::path::Path;
 use std::pin::Pin;
@@ -243,14 +244,15 @@ impl fmt::Display for AnnexError {
             0 => write!(f, " <no error message>"),
             1 => write!(f, " {}", self.0[0]),
             _ => {
-                write!(f, "\n\n")?;
+                let mut ff = indented(f).with_str("    ");
+                write!(ff, "\n\n")?;
                 for m in &self.0 {
-                    write!(f, "    {m}")?;
+                    write!(ff, "{m}")?;
                     if !m.ends_with('\n') {
-                        writeln!(f)?;
+                        writeln!(ff)?;
                     }
                 }
-                writeln!(f)
+                writeln!(ff)
             }
         }
     }
