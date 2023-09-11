@@ -321,6 +321,6 @@ mod tests {
     #[test]
     fn test_cli_zero_jobs() {
         let args = Arguments::try_parse_from(["arg0", "-J", "0"]);
-        assert!(matches!(args, Err(_)))
+        assert!(args.is_err());
     }
 }

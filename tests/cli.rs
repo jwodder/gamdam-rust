@@ -1,3 +1,4 @@
+#![allow(clippy::items_after_test_module)]
 use gamdam::{Downloadable, FilePath};
 use rstest::rstest;
 use serde::Deserialize;
