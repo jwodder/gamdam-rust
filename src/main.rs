@@ -21,13 +21,13 @@ use tokio::io::BufReader;
 /// it attaches any listed metadata and extra URLs using `git-annex metadata`
 /// and `git-annex registerurl`, respectively.
 #[derive(Debug, Parser, PartialEq)]
-#[clap(version)]
+#[command(version)]
 struct Arguments {
     /// Additional options to pass to `git-annex addurl`
     ///
     /// Multiple options & arguments need to be quoted as a single string,
     /// which must also use proper shell quoting internally.
-    #[clap(long, value_name = "OPTIONS", value_parser = shell_words::split, allow_hyphen_values = true)]
+    #[arg(long, value_name = "OPTIONS", value_parser = shell_words::split, allow_hyphen_values = true)]
     // We need to refer to Vec with a fully-qualified name in order for clap to
     // not treat the option as multiuse.
     addurl_opts: Option<std::vec::Vec<String>>,
@@ -36,19 +36,19 @@ struct Arguments {
     ///
     /// If the given directory does not exist, it is created.  If it is not
     /// already inside a Git or git-annex repository, one is initialized.
-    #[clap(short = 'C', long = "chdir", value_name = "DIR", default_value_os_t = PathBuf::from("."), hide_default_value = true)]
+    #[arg(short = 'C', long = "chdir", value_name = "DIR", default_value_os_t = PathBuf::from("."), hide_default_value = true)]
     repo: PathBuf,
 
     /// Write failed download items to the given file
-    #[clap(short = 'F', long = "failures", value_name = "FILE")]
+    #[arg(short = 'F', long = "failures", value_name = "FILE")]
     failures: Option<OutputArg>,
 
     /// Number of jobs for `git-annex addurl` to use  [default: one per CPU]
-    #[clap(short = 'J', value_name = "INT")]
+    #[arg(short = 'J', value_name = "INT")]
     jobs: Option<NonZeroUsize>,
 
     /// Set logging level
-    #[clap(
+    #[arg(
         short,
         long,
         default_value = "INFO",
@@ -60,7 +60,7 @@ struct Arguments {
     ///
     /// Any occurrences of "{downloaded}" in the message will be replaced by
     /// the number of successfully downloaded files.
-    #[clap(
+    #[arg(
         short,
         long,
         default_value = "Downloaded {downloaded} URLs",
@@ -69,20 +69,20 @@ struct Arguments {
     message: String,
 
     /// Don't commit if any files failed to download
-    #[clap(long)]
+    #[arg(long)]
     no_save_on_fail: bool,
 
     /// Commit the downloaded files when done  [default]
-    #[clap(long = "save")]
+    #[arg(long = "save")]
     _no_save: bool,
 
     /// Don't commit the downloaded files when done
-    #[clap(long = "no-save", overrides_with = "_no_save", action = ArgAction::SetFalse)]
+    #[arg(long = "no-save", overrides_with = "_no_save", action = ArgAction::SetFalse)]
     save: bool,
 
     /// File containing JSON lines with "url", "path", "metadata" (optional),
     /// and "extra_urls" (optional) fields  [default: read from stdin]
-    #[clap(default_value_t, hide_default_value = true)]
+    #[arg(default_value_t, hide_default_value = true)]
     infile: InputArg,
 }
 
