@@ -118,7 +118,7 @@ async fn main() -> Result<ExitCode, anyhow::Error> {
         .level(args.log_level)
         .chain(std::io::stderr())
         .apply()
-        .unwrap();
+        .expect("no other logger should have been previously initialized");
     let items = read_input_file(args.infile).await?;
     if items.is_empty() {
         log::info!("Nothing to download");
