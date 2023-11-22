@@ -46,11 +46,11 @@ impl<Input, Output> AnnexProcess<Input, Output> {
     const MAX_INPUT_LEN: usize = 65535;
     const ERR_TIMEOUT: Duration = Duration::from_secs(3);
 
-    pub(crate) async fn new<I, S, P>(name: &str, args: I, repo: P) -> Result<Self, anyhow::Error>
+    pub(crate) fn new<I, S, P>(name: &str, args: I, repo: P) -> Result<Self, anyhow::Error>
     where
-        I: IntoIterator<Item = S>,
-        S: AsRef<OsStr>,
-        P: AsRef<Path>,
+        I: IntoIterator<Item = S> + Send,
+        S: AsRef<OsStr> + Send,
+        P: AsRef<Path> + Send,
     {
         let args = args
             .into_iter()
@@ -88,15 +88,19 @@ impl<Input, Output> AnnexProcess<Input, Output> {
 
     pub(crate) async fn in_context<Func, F, T, E>(self, func: Func) -> Result<T, E>
     where
-        Func: FnOnce(AnnexIO<Input, Output>) -> F,
-        F: Future<Output = Result<T, E>>,
+        Input: Send,
+        Output: Send,
+        Func: (FnOnce(AnnexIO<Input, Output>) -> F) + Send,
+        F: Future<Output = Result<T, E>> + Send,
+        T: Send,
+        E: Send,
     {
         let (mut terminator, io) = self.split();
         let r = func(io).await;
         if r.is_ok() {
-            terminator.wait(None).await
+            terminator.wait(None).await;
         } else {
-            terminator.terminate(Some(Self::ERR_TIMEOUT)).await
+            terminator.terminate(Some(Self::ERR_TIMEOUT)).await;
         }
         r
     }
@@ -125,16 +129,17 @@ impl AnnexTerminator {
         log::debug!("Waiting for `git-annex {}` command to exit", self.name);
         let rc = match timeout {
             None => self.p.wait().await,
-            Some(delta) => match time::timeout(delta, self.p.wait()).await {
-                Ok(rc) => rc,
-                Err(_) => {
+            Some(delta) => {
+                if let Ok(rc) = time::timeout(delta, self.p.wait()).await {
+                    rc
+                } else {
                     log::warn!("`git-annex {}` did not exit in time; killing", self.name);
                     if let Err(e) = self.p.kill().await {
                         log::warn!("Error killing `git-annex {}` command: {}", self.name, e);
                     }
                     return;
                 }
-            },
+            }
         };
         match rc {
             Ok(rc) => {
@@ -163,7 +168,7 @@ impl AnnexTerminator {
                     if let Err(e) = kill(pid, SIGTERM) {
                         log::warn!("Error sending SIGTERM to `git-annex {}` command: {}", self.name, e);
                     } else {
-                        self.wait(timeout).await
+                        self.wait(timeout).await;
                     }
                 } else {
                     log::warn!("Could not construct pid for `git-annex {}` command", self.name);
@@ -191,19 +196,16 @@ impl<Input, Output> AnnexIO<Input, Output> {
 
     pub(crate) async fn chat(&mut self, value: Input) -> Result<Output, anyhow::Error>
     where
-        Input: AnnexInput,
+        Input: AnnexInput + Send,
         <Input as AnnexInput>::Error: Into<BinaryLinesCodecError>,
         <StdoutTransport as TryStream>::Error: From<serde_json::Error>,
-        Output: for<'a> Deserialize<'a> + std::marker::Unpin,
+        Output: for<'a> Deserialize<'a> + Unpin + Send,
     {
         // send() always flushes
-        match self.stdin.send(value).await {
-            Ok(_) => (),
-            Err(e) => {
-                return Err(e)
-                    .with_context(|| format!("Error writing to `git-annex {}`", self.name))
-            }
-        }
+        self.stdin
+            .send(value)
+            .await
+            .with_context(|| format!("Error writing to `git-annex {}`", self.name))?;
         match self
             .stdout
             .try_next()
@@ -239,7 +241,7 @@ impl<I: AnnexInput> Serializer<I> for AnnexCodec {
 pub struct AnnexError(Vec<String>);
 
 impl fmt::Display for AnnexError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.0.len() {
             0 => write!(f, " <no error message>"),
             1 => write!(f, " {}", self.0[0]),

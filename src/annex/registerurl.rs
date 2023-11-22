@@ -58,6 +58,6 @@ mod tests {
                     error_messages: Vec::new(),
                 },
             }
-        )
+        );
     }
 }

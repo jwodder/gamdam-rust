@@ -18,13 +18,13 @@ impl FilePath {
 }
 
 impl fmt::Debug for FilePath {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(&self.0, f)
     }
 }
 
 impl fmt::Display for FilePath {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(&self.0, f)
     }
 }
@@ -40,10 +40,10 @@ impl Serialize for FilePath {
 
 struct FilePathVisitor;
 
-impl<'de> Visitor<'de> for FilePathVisitor {
+impl Visitor<'_> for FilePathVisitor {
     type Value = FilePath;
 
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str("a normalized, nonempty, relative path")
     }
 

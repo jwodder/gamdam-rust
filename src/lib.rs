@@ -81,7 +81,7 @@ pub enum Jobs {
 }
 
 impl fmt::Display for Jobs {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Jobs::CPUs => write!(f, "cpus"),
             Jobs::Qty(n) => write!(f, "{n}"),
@@ -99,17 +99,15 @@ pub struct Gamdam {
 impl Gamdam {
     pub async fn download<I>(&self, items: I) -> Result<Report, anyhow::Error>
     where
-        I: IntoIterator<Item = Downloadable>,
+        I: IntoIterator<Item = Downloadable> + Send,
+        I::IntoIter: Send,
     {
         let r = self
-            .addurl()
-            .await?
+            .addurl()?
             .in_context(|addurl| async {
-                self.metadata()
-                    .await?
+                self.metadata()?
                     .in_context(|metadata| async move {
-                        self.registerurl()
-                            .await?
+                        self.registerurl()?
                             .in_context(|registerurl| async move {
                                 let in_progress = Arc::new(InProgress::new());
                                 let (sender, receiver) = unbounded_channel();
@@ -126,7 +124,7 @@ impl Gamdam {
             })
             .await;
         match r {
-            Ok((_, _, report)) => {
+            Ok(((), (), report)) => {
                 log::info!("Downloaded {}", quantify(report.successful.len(), "file"));
                 if !report.failed.is_empty() {
                     log::error!(
@@ -147,7 +145,8 @@ impl Gamdam {
         in_progress: Arc<InProgress>,
     ) -> Result<(), anyhow::Error>
     where
-        I: IntoIterator<Item = Downloadable>,
+        I: IntoIterator<Item = Downloadable> + Send,
+        I::IntoIter: Send,
     {
         for dl in items {
             if in_progress.add(&dl) {
@@ -205,14 +204,14 @@ impl Gamdam {
                     let downloadable = in_progress.pop(&file)?;
                     let res = DownloadResult::successful_download(downloadable, key);
                     // TODO: Do something if send() fails
-                    sender.send(res).unwrap();
+                    let _ = sender.send(res);
                 }
                 Err(e) => {
                     log::error!("{file}: download failed:{e}");
                     let downloadable = in_progress.pop(&file)?;
                     let res = DownloadResult::failed_download(downloadable, e);
                     // TODO: Do something if send() fails
-                    sender.send(res).unwrap();
+                    let _ = sender.send(res);
                 }
             }
         }
@@ -286,7 +285,7 @@ impl Gamdam {
         Ok(Report { successful, failed })
     }
 
-    async fn addurl(&self) -> Result<AnnexProcess<AddURLInput, AddURLOutput>, anyhow::Error> {
+    fn addurl(&self) -> Result<AnnexProcess<AddURLInput, AddURLOutput>, anyhow::Error> {
         let jobs = self.addurl_jobs.to_string();
         let mut args = vec![
             "--batch",
@@ -298,19 +297,18 @@ impl Gamdam {
             "--json-progress",
         ];
         args.extend(self.addurl_options.iter().map(String::as_str));
-        AnnexProcess::new("addurl", args, &self.repo).await
+        AnnexProcess::new("addurl", args, &self.repo)
     }
 
-    async fn metadata(&self) -> Result<AnnexProcess<MetadataInput, MetadataOutput>, anyhow::Error> {
+    fn metadata(&self) -> Result<AnnexProcess<MetadataInput, MetadataOutput>, anyhow::Error> {
         AnnexProcess::new(
             "metadata",
             ["--batch", "--json", "--json-error-messages"],
             &self.repo,
         )
-        .await
     }
 
-    async fn registerurl(
+    fn registerurl(
         &self,
     ) -> Result<AnnexProcess<RegisterURLInput, RegisterURLOutput>, anyhow::Error> {
         AnnexProcess::new(
@@ -318,7 +316,6 @@ impl Gamdam {
             ["--batch", "--json", "--json-error-messages"],
             &self.repo,
         )
-        .await
     }
 }
 
@@ -334,7 +331,7 @@ impl InProgress {
     }
 
     fn add(&self, dl: &Downloadable) -> bool {
-        let mut data = self.data.lock().unwrap();
+        let mut data = self.data.lock().expect("Mutex should not be poisoned");
         match data.entry(dl.path.clone()) {
             Entry::Occupied(_) => false,
             Entry::Vacant(v) => {
@@ -345,7 +342,7 @@ impl InProgress {
     }
 
     fn pop(&self, file: &FilePath) -> Result<Downloadable, anyhow::Error> {
-        let mut data = self.data.lock().unwrap();
+        let mut data = self.data.lock().expect("Mutex should not be poisoned");
         match data.remove(file) {
             Some(dl) => Ok(dl),
             None => anyhow::bail!("No record found for download of {file}"),
@@ -353,7 +350,7 @@ impl InProgress {
     }
 }
 
-pub async fn ensure_annex_repo<P: AsRef<Path>>(repo: P) -> Result<(), anyhow::Error> {
+pub async fn ensure_annex_repo<P: AsRef<Path> + Send>(repo: P) -> Result<(), anyhow::Error> {
     let repo = repo.as_ref();
     create_dir_all(&repo)
         .await

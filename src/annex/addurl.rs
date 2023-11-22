@@ -1,3 +1,4 @@
+#![allow(clippy::collection_is_never_read)] // False positive on Deserialize?
 use super::outputs::{Action, AnnexResult};
 use super::*;
 use crate::filepath::FilePath;
@@ -85,7 +86,7 @@ mod tests {
                 },
                 note: Some(String::from("to programming/gameboy.pdf")),
             }
-        )
+        );
     }
 
     #[test]
@@ -106,7 +107,7 @@ mod tests {
                 },
                 note: Some(String::from("to text/shakespeare/hamlet.txt\nnon-large file; adding content to git repository")),
             }
-        )
+        );
     }
 
     #[test]
@@ -130,7 +131,7 @@ mod tests {
                 },
                 note: None,
             }
-        )
+        );
     }
 
     #[test]
@@ -148,7 +149,7 @@ mod tests {
                     input: vec![String::from("https://archive.org/download/GameBoyProgManVer1.1/GameBoyProgManVer1.1.pdf programming/gameboy.pdf")],
                 },
             }
-        )
+        );
     }
 
     #[test]
@@ -169,6 +170,6 @@ mod tests {
                     )],
                 },
             }
-        )
+        );
     }
 }

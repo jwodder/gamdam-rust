@@ -71,7 +71,7 @@ mod tests {
                 },
                 note: Some(String::from("color=blue\ncolor-lastchanged=2022-10-17@19-53-03\nflavors=charmed\nflavors=strange\nflavors-lastchanged=2022-10-17@19-53-03\nlastchanged=2022-10-17@19-53-03\n")),
             }
-        )
+        );
     }
 
     #[test]

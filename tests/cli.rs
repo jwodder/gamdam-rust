@@ -74,7 +74,10 @@ impl Annex {
             .current_dir(&self.repo)
             .output()
             .expect("Failed to run `git-annex metadata`");
-        assert!(r.status.success());
+        assert!(
+            r.status.success(),
+            "git-annex metadata command did not exit successfully"
+        );
         serde_json::from_slice::<MetadataOutput>(&r.stdout)
             .expect("Error parsing `git-annex metadata` output")
             .fields
@@ -87,7 +90,10 @@ impl Annex {
             .current_dir(&self.repo)
             .output()
             .expect("Failed to run `git-annex whereis`");
-        assert!(r.status.success());
+        assert!(
+            r.status.success(),
+            "git-annex whereis command did not exit successfully"
+        );
         for loc in serde_json::from_slice::<WhereisOutput>(&r.stdout)
             .expect("Error parsing `git-annex whereis` output")
             .whereis
@@ -160,7 +166,7 @@ fn test_gamdam_successful(#[case] infile: &str) {
         }
         let mut expected_urls = vec![dl.url.to_string()];
         for u in dl.extra_urls {
-            expected_urls.push(u.to_string())
+            expected_urls.push(u.to_string());
         }
         expected_urls.sort();
         assert_eq!(annex.get_urls(&dl.path), expected_urls);
@@ -218,7 +224,7 @@ fn test_gamdam_failures() {
             }
             let mut expected_urls = vec![dl.url.to_string()];
             for u in dl.extra_urls {
-                expected_urls.push(u.to_string())
+                expected_urls.push(u.to_string());
             }
             expected_urls.sort();
             assert_eq!(annex.get_urls(&dl.path), expected_urls);
@@ -227,10 +233,10 @@ fn test_gamdam_failures() {
             expected_failures.push(serde_json::to_string(&dl).unwrap());
         }
     }
-    expected_failures.sort();
+    expected_failures.sort_unstable();
     let failfile =
         read_to_string(tmp_path.join("failures.jsonl")).expect("Error reading failures.jsonl");
     let mut recorded_failures = failfile.lines().collect::<Vec<_>>();
-    recorded_failures.sort();
+    recorded_failures.sort_unstable();
     assert_eq!(expected_failures, recorded_failures);
 }

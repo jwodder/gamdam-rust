@@ -4,6 +4,7 @@ use std::process::{ExitStatus, Stdio};
 use thiserror::Error;
 use tokio::process::Command;
 
+#[derive(Debug)]
 pub struct LoggedCommand {
     cmdline: String,
     cmd: Command,

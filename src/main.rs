@@ -22,6 +22,7 @@ use tokio::io::BufReader;
 /// and `git-annex registerurl`, respectively.
 #[derive(Debug, Parser, PartialEq)]
 #[command(version)]
+#[allow(unused_qualifications)]
 struct Arguments {
     /// Additional options to pass to `git-annex addurl`
     ///
@@ -113,7 +114,7 @@ async fn main() -> Result<ExitCode, anyhow::Error> {
                 chrono::Local::now().format("%H:%M:%S"),
                 record.level(),
                 message
-            ))
+            ));
         })
         .level(args.log_level)
         .chain(std::io::stderr())
@@ -152,7 +153,7 @@ async fn main() -> Result<ExitCode, anyhow::Error> {
                     args.repo,
                 )
                 .status()
-                .await?
+                .await?;
             }
             Ok(()) => {
                 // This can happen if we only downloaded files that were
@@ -174,6 +175,9 @@ async fn main() -> Result<ExitCode, anyhow::Error> {
     }
 }
 
+// The suggested "fix" for the `|inner| inner.is::<...>()` closure just looks
+// ugly.
+#[allow(clippy::redundant_closure_for_method_calls)]
 async fn read_input_file(infile: InputArg) -> Result<Vec<Downloadable>, anyhow::Error> {
     let mut lines = BufReader::new(
         infile
@@ -189,8 +193,7 @@ async fn read_input_file(infile: InputArg) -> Result<Vec<Downloadable>, anyhow::
             Ok(d) => items.push(d),
             Err(e)
                 if e.get_ref()
-                    .map(|inner| inner.is::<serde_json::Error>())
-                    .unwrap_or(false) =>
+                    .is_some_and(|inner| inner.is::<serde_json::Error>()) =>
             {
                 log::warn!("Input line {} is invalid; discarding: {}", lineno, e);
             }
@@ -203,7 +206,8 @@ async fn read_input_file(infile: InputArg) -> Result<Vec<Downloadable>, anyhow::
 
 async fn write_failures<I>(outfile: OutputArg, failures: I) -> Result<(), anyhow::Error>
 where
-    I: IntoIterator<Item = DownloadResult>,
+    I: IntoIterator<Item = DownloadResult> + Send,
+    I::IntoIter: Send,
 {
     let mut sink = outfile
         .async_create()
@@ -225,7 +229,7 @@ mod tests {
 
     #[test]
     fn verify_cli() {
-        Arguments::command().debug_assert()
+        Arguments::command().debug_assert();
     }
 
     #[test]

@@ -1,15 +1,15 @@
 //! tokio-util's `LinesCodec` is incompatible with tokio-serde + JSON in the
 //! following ways:
 //!
-//! - tokio-serde requires provided Streams to produce BytesMut, but
-//!   LinesCodec's Decoder impl produces Strings.
+//! - tokio-serde requires provided Streams to produce `BytesMut`, but
+//!   `LinesCodec`'s Decoder impl produces Strings.
 //!
-//! - tokio-serde requires provided Sinks to take Bytes, but LinesCodec's
-//!   Encoder impl takes AsRef<str>.
+//! - tokio-serde requires provided Sinks to take Bytes, but `LinesCodec`'s
+//!   Encoder impl takes `AsRef<str>`.
 //!
-//! - The error type used by the serde codec (here, json_serde::Error) has to
+//! - The error type used by the serde codec (here, `json_serde::Error`) has to
 //!   be convertible to the error type of the encoder & decoder (here,
-//!   LinesCodecError), yet it is not.
+//!   `LinesCodecError`), yet it is not.
 //!
 //! Hence, I've copied the source of [`lines_codec.rs`][1] and adjusted it as
 //! necessary to resolve the above problems.  -- jwodder
@@ -108,7 +108,7 @@ impl BinaryLinesCodec {
 }
 
 fn without_carriage_return(s: &[u8]) -> &[u8] {
-    if let Some(&b'\r') = s.last() {
+    if s.last() == Some(&b'\r') {
         &s[..s.len() - 1]
     } else {
         s
