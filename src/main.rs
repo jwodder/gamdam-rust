@@ -1,8 +1,7 @@
 use anyhow::Context;
 use clap::builder::ArgAction;
 use clap::Parser;
-use futures::sink::SinkExt;
-use futures::StreamExt;
+use futures_util::{SinkExt, StreamExt};
 use gamdam::cmd::{CommandError, LoggedCommand};
 use gamdam::{ensure_annex_repo, DownloadResult, Downloadable, Gamdam, Jobs};
 use patharg::{InputArg, OutputArg};

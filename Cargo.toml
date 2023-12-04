@@ -16,7 +16,7 @@ cfg-if = "1.0.0"
 chrono = "0.4.24"
 clap = { version = "4.2.4", default-features = false, features = ["derive", "error-context", "help", "std", "suggestions", "usage", "wrap_help"] }
 fern = "0.6.2"
-futures = "0.3.28"
+futures-util = { version = "0.3.28", default-features = false }
 indenter = "0.3.3"
 log = { version = "0.4.17", features = ["std"] }
 patharg = { version = "0.3.0", features = ["tokio"] }
