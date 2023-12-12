@@ -94,7 +94,7 @@ impl<Input, Output> AnnexProcess<Input, Output> {
         T: Send,
         E: Send,
     {
-        let (mut terminator, io) = self.split();
+        let (terminator, io) = self.split();
         let r = func(io).await;
         if r.is_ok() {
             terminator.wait(None).await;
@@ -124,7 +124,7 @@ pub(crate) struct AnnexTerminator {
 }
 
 impl AnnexTerminator {
-    pub(crate) async fn wait(&mut self, timeout: Option<Duration>) {
+    pub(crate) async fn wait(mut self, timeout: Option<Duration>) {
         log::debug!("Waiting for `git-annex {}` command to exit", self.name);
         let rc = match timeout {
             None => self.p.wait().await,
@@ -158,7 +158,7 @@ impl AnnexTerminator {
         }
     }
 
-    pub(crate) async fn terminate(&mut self, #[allow(unused)] timeout: Option<Duration>) {
+    pub(crate) async fn terminate(self, #[allow(unused)] timeout: Option<Duration>) {
         cfg_if! {
             if #[cfg(unix)] {
                 log::debug!("Forcibly terminating `git-annex {}` command", self.name);
