@@ -1,2 +1,2 @@
-{"url": "http://mirrors.ctan.org/info/lshort/english/lshort.pdf", "path": "programming/latex/lshort.pdf", "extra_urls": ["https://tobi.oetiker.ch/lshort/lshort.pdf"]}
-{"url":"https://www.ietf.org/rfc/rfc2616.txt","path":"text/rfcs/2616.txt","extra_urls": ["https://www.rfc-editor.org/rfc/rfc2616.txt"]}
+{"url":"https://texdoc.org/serve/lshort/0","path":"programming/latex/lshort.pdf","extra_urls":["http://mirrors.ctan.org/info/lshort/english/lshort.pdf","https://tobi.oetiker.ch/lshort/lshort.pdf"]}
+{"url":"https://www.ietf.org/rfc/rfc2616.txt","path":"text/rfcs/2616.txt","extra_urls":["https://www.rfc-editor.org/rfc/rfc2616.txt"]}
