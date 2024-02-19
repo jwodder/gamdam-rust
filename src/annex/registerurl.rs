@@ -1,5 +1,5 @@
 use super::outputs::{Action, AnnexResult};
-use super::*;
+use super::{AnnexError, AnnexInput};
 use bytes::Bytes;
 use serde::Deserialize;
 use url::Url;

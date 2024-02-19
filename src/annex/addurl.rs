@@ -1,6 +1,6 @@
 #![allow(clippy::collection_is_never_read)] // False positive on Deserialize?
 use super::outputs::{Action, AnnexResult};
-use super::*;
+use super::{AnnexError, AnnexInput};
 use crate::filepath::FilePath;
 use bytes::Bytes;
 use serde::Deserialize;
