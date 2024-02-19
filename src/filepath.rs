@@ -1,4 +1,3 @@
-use cfg_if::cfg_if;
 use serde::de::{Deserializer, Unexpected, Visitor};
 use serde::ser::Serializer;
 use serde::{Deserialize, Serialize};
@@ -80,13 +79,11 @@ pub enum FilePathError {
     Undecodable,
 }
 
-cfg_if! {
-    if #[cfg(windows)] {
-        const PATHSEP: &[char] = &['\\', '/'];
-    } else {
-        const PATHSEP: char = '/';
-    }
-}
+#[cfg(windows)]
+const PATHSEP: &[char] = &['\\', '/'];
+
+#[cfg(not(windows))]
+const PATHSEP: char = '/';
 
 impl TryFrom<&Path> for FilePath {
     type Error = FilePathError;

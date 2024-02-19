@@ -5,7 +5,6 @@ pub(crate) mod registerurl;
 use crate::blc::{BinaryLinesCodec, BinaryLinesCodecError};
 use anyhow::Context;
 use bytes::Bytes;
-use cfg_if::cfg_if;
 use futures_util::{SinkExt, TryStream, TryStreamExt};
 use indenter::indented;
 use serde::Deserialize;
@@ -21,13 +20,6 @@ use tokio::time;
 use tokio_serde::formats::Json;
 use tokio_serde::{Framed, Serializer};
 use tokio_util::codec::{FramedRead, FramedWrite};
-
-cfg_if! {
-    if #[cfg(unix)] {
-        use nix::sys::signal::{kill, SIGTERM};
-        use nix::unistd::Pid;
-    }
-}
 
 pub(crate) type StdinTransport = FramedWrite<ChildStdin, BinaryLinesCodec>;
 pub(crate) type StdoutTransport = FramedRead<ChildStdout, BinaryLinesCodec>;
@@ -158,28 +150,39 @@ impl AnnexTerminator {
         }
     }
 
+    #[cfg(unix)]
     #[allow(unused_mut)]
+    pub(crate) async fn terminate(mut self, timeout: Option<Duration>) {
+        use nix::{
+            sys::signal::{kill, SIGTERM},
+            unistd::Pid,
+        };
+        log::debug!("Forcibly terminating `git-annex {}` command", self.name);
+        if let Some(Ok(pid)) = self.p.id().map(TryInto::try_into) {
+            let pid = Pid::from_raw(pid);
+            if let Err(e) = kill(pid, SIGTERM) {
+                log::warn!(
+                    "Error sending SIGTERM to `git-annex {}` command: {}",
+                    self.name,
+                    e
+                );
+            } else {
+                self.wait(timeout).await;
+            }
+        } else {
+            log::warn!(
+                "Could not construct pid for `git-annex {}` command",
+                self.name
+            );
+        }
+    }
+
+    #[cfg(not(unix))]
     #[allow(unused_variables)]
     pub(crate) async fn terminate(mut self, timeout: Option<Duration>) {
-        cfg_if! {
-            if #[cfg(unix)] {
-                log::debug!("Forcibly terminating `git-annex {}` command", self.name);
-                if let Some(Ok(pid)) = self.p.id().map(TryInto::try_into) {
-                    let pid = Pid::from_raw(pid);
-                    if let Err(e) = kill(pid, SIGTERM) {
-                        log::warn!("Error sending SIGTERM to `git-annex {}` command: {}", self.name, e);
-                    } else {
-                        self.wait(timeout).await;
-                    }
-                } else {
-                    log::warn!("Could not construct pid for `git-annex {}` command", self.name);
-                }
-            } else {
-                log::debug!("Forcibly killing `git-annex {}` command", self.name);
-                if let Err(e) = self.p.kill().await {
-                    log::warn!("Error killing `git-annex {}` command: {}", self.name, e);
-                }
-            }
+        log::debug!("Forcibly killing `git-annex {}` command", self.name);
+        if let Err(e) = self.p.kill().await {
+            log::warn!("Error killing `git-annex {}` command: {}", self.name, e);
         }
     }
 }

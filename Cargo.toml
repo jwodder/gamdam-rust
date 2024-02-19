@@ -12,7 +12,6 @@ publish = false
 [dependencies]
 anyhow = "1.0.70"
 bytes = "1.4.0"
-cfg-if = "1.0.0"
 chrono = "0.4.24"
 clap = { version = "4.2.4", default-features = false, features = ["derive", "error-context", "help", "std", "suggestions", "usage", "wrap_help"] }
 fern = "0.6.2"
