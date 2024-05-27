@@ -81,7 +81,7 @@ struct Arguments {
     save: bool,
 
     /// File containing JSON lines with "url", "path", "metadata" (optional),
-    /// and "extra_urls" (optional) fields  [default: read from stdin]
+    /// and "`extra_urls`" (optional) fields  [default: read from stdin]
     #[arg(default_value_t, hide_default_value = true)]
     infile: InputArg,
 }
