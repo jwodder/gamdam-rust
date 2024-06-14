@@ -45,7 +45,7 @@
 use tokio_util::codec::{Decoder, Encoder};
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
-use std::{cmp, fmt, io, usize};
+use std::{cmp, fmt, io};
 
 /// A simple [`Decoder`] and [`Encoder`] implementation that splits up data into lines.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
