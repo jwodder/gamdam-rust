@@ -34,6 +34,31 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '^3.8'
+
+      - name: Install git-annex (Ubuntu)
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          python3 -m pip install --upgrade datalad-installer
+          datalad-installer -l DEBUG --sudo ok neurodebian git-annex -m neurodebian
+
+      - name: Install git-annex (macOS)
+        if: startsWith(matrix.os, 'macos')
+        run: |
+          python3 -m pip install --upgrade datalad-installer
+          datalad-installer -l DEBUG --sudo ok git-annex -m brew
+
+      - name: Install git-annex (Windows)
+        if: startsWith(matrix.os, 'windows')
+        run: |
+          python3 -m pip install --upgrade datalad-installer
+          datalad-installer -l DEBUG --sudo ok git-annex -m datalad/git-annex:release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Configure Git identity
         # Needed for a couple tests
         run: |
@@ -62,31 +87,6 @@ jobs:
       - name: Activate cache
         if: "!startsWith(github.head_ref, 'dependabot/')"
         uses: Swatinem/rust-cache@v2
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '^3.8'
-
-      - name: Install git-annex (Ubuntu)
-        if: startsWith(matrix.os, 'ubuntu')
-        run: |
-          python3 -m pip install --upgrade datalad-installer
-          datalad-installer -l DEBUG --sudo ok neurodebian git-annex -m neurodebian
-
-      - name: Install git-annex (macOS)
-        if: startsWith(matrix.os, 'macos')
-        run: |
-          python3 -m pip install --upgrade datalad-installer
-          datalad-installer -l DEBUG --sudo ok git-annex -m brew
-
-      - name: Install git-annex (Windows)
-        if: startsWith(matrix.os, 'windows')
-        run: |
-          python3 -m pip install --upgrade datalad-installer
-          datalad-installer -l DEBUG --sudo ok git-annex -m datalad/git-annex:release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build crate
         run: cargo build --all-targets --verbose
